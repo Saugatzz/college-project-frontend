@@ -18,19 +18,23 @@ export default function HomePage() {
 
   return (
     <main id="main-content">
-      {/* Hero + floating search wrapper */}
-      <div className="relative overflow-visible">
-        <HeroSection onExplore={scrollToTours} />
-        {/* Search bar floats over the bottom of the hero */}
-        <div className="absolute bottom-0 left-0 right-0 translate-y-1/2 z-20 px-4 md:px-12">
-          <div className="max-w-[1300px] mx-auto">
+      {/* Hero — pb makes room so the search card overlaps from inside */}
+      <div className="relative">
+        {/* Extra bottom padding creates the "shelf" the search card sits in */}
+        <div className="pb-[100px] sm:pb-[52px]">
+          <HeroSection onExplore={scrollToTours} />
+        </div>
+
+        {/* Search card: pulled up with negative margin so it straddles the hero bottom */}
+        <div className="relative z-20 -mt-[100px] sm:-mt-[52px] px-4 sm:px-8 md:px-12">
+          <div className="max-w-[860px] mx-auto">
             <SearchSection onSearch={handleHeroSearch} />
           </div>
         </div>
       </div>
 
-      {/* Spacer compensates for the search bar overlap */}
-      <div className="h-16 md:h-20 bg-snow" />
+      {/* Breathing room between search card and tours */}
+      <div className="h-10 sm:h-12 bg-snow" />
 
       <ToursSection
         filters={filters}
