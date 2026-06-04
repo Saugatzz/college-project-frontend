@@ -78,7 +78,7 @@ export const TOURS: Tour[] = [
     tags: ["kathmandu", "temples", "unesco", "heritage", "bhaktapur", "patan"],
     heroImage: "https://images.unsplash.com/photo-1680471818128-b85e28f34edd?auto=format&fit=crop&w=1200&q=80",
     gallery: [
-      { src: "images/gallery-2-1.jpg", alt: "Boudhanath Stupa at dusk, Kathmandu Nepal" },
+      { src: "https://images.unsplash.com/photo-1665435246383-4103fc803522?auto=format&fit=crop&w=800&q=80", alt: "Boudhanath Stupa at dusk, Kathmandu Nepal" },
       { src: "https://images.unsplash.com/photo-1665435246383-4103fc803522?auto=format&fit=crop&w=800&q=80", alt: "Swayambhunath stupa with prayer flags and tower, Kathmandu Nepal" },
       { src: "https://images.unsplash.com/photo-1529733905113-027ed85d7e33?auto=format&fit=crop&w=800&q=80", alt: "Colourful Swayambhunath stupa complex, UNESCO World Heritage, Kathmandu" },
     ],

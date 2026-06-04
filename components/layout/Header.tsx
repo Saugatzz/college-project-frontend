@@ -23,7 +23,7 @@ export default function Header() {
       <nav className="hidden md:flex gap-8 items-center">
         <a href="#" className="text-sm font-normal text-stone tracking-wide no-underline hover:text-sky-accent transition-colors">Destinations</a>
         <a href="#" className="text-sm font-normal text-stone tracking-wide no-underline hover:text-sky-accent transition-colors">Trek Types</a>
-        <a href="#" className="text-sm font-normal text-stone tracking-wide no-underline hover:text-sky-accent transition-colors">About</a>
+        <a href="/about" className="text-sm font-normal text-stone tracking-wide no-underline hover:text-sky-accent transition-colors">About</a>
         <a href="#" className="bg-sky-accent text-white px-5 py-2 rounded-full text-sm font-medium no-underline hover:bg-sky-dark transition-all hover:-translate-y-px">Plan My Trip</a>
       </nav>
 

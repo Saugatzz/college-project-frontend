@@ -1,5 +1,6 @@
 'use client';
 import type { Tour } from '@/types/tour';
+import { useRouter } from 'next/navigation';
 
 interface Props {
   tour: Tour;
@@ -9,6 +10,15 @@ interface Props {
 }
 
 export default function BookingSidebar({ tour, total, selectedAddons, onToggleAddon }: Props) {
+  const router = useRouter();
+
+  const handleBook = () => {
+    const addonIndices = Object.keys(selectedAddons).join(',');
+    const params = new URLSearchParams({ tourId: String(tour.id) });
+    if (addonIndices) params.set('addons', addonIndices);
+    router.push(`/checkout?${params.toString()}`);
+  };
+
   return (
     <aside aria-label="Booking and pricing">
       <div className="bg-white border border-sky-mid/20 rounded-[18px] p-5 md:p-7 shadow-[0_4px_24px_rgba(30,80,120,0.13)] lg:sticky lg:top-[88px]">
@@ -60,8 +70,9 @@ export default function BookingSidebar({ tour, total, selectedAddons, onToggleAd
 
         <button
           type="button"
+          onClick={handleBook}
           aria-label={`Book ${tour.name}`}
-          className="w-full bg-gradient-to-br from-sky-accent to-sky-dark text-white border-none py-4 rounded-full font-sans text-[0.95rem] font-medium cursor-pointer transition-all hover:opacity-90 hover:-translate-y-0.5 shadow-[0_6px_24px_rgba(46,134,193,0.35)] tracking-wide"
+          className="w-full bg-gradient-to-br from-sky-accent to-sky-dark text-white border-none py-4 rounded-full font-sans text-[0.95rem] font-medium cursor-pointer transition-all hover:opacity-90 hover:-translate-y-0.5 shadow-[0_6px_24px_rgba(46,134,193,0.35)] tracking-wide mt-1"
         >
           Book This Tour
         </button>
