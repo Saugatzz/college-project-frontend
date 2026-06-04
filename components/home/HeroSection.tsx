@@ -7,12 +7,18 @@ interface Props {
 export default function HeroSection({ onExplore }: Props) {
   return (
     <section
-      className="min-h-screen bg-[url('/images/hero-bg.jpg')] bg-center bg-cover flex items-center px-6 md:px-12 pt-[68px] pb-15 relative overflow-hidden"
+      className="h-screen bg-[url('/images/hero-bg.jpg')] bg-center bg-cover flex items-center px-6 md:px-12 pt-[68px] pb-20 relative"
       aria-label="Hero banner"
     >
+      {/* Dark overlay */}
       <div className="absolute inset-0 z-[1] bg-gradient-to-br from-[rgba(4,12,24,0.85)] via-[rgba(4,12,24,0.54)] to-[rgba(4,12,24,0.18)]" />
-      <div className="relative z-[2] max-w-2xl py-12 md:py-20 pb-20 md:pb-32">
-        <div className="inline-flex items-center gap-2 bg-white/10 border border-white/30 text-white/90 text-xs font-medium tracking-widest uppercase px-4 py-1.5 rounded-full mb-7 backdrop-blur-sm">
+
+      {/* Bottom fade into snow — softens the hard cut before search bar */}
+      <div className="absolute bottom-0 inset-x-0 h-48 z-[1] bg-gradient-to-t from-snow/80 to-transparent pointer-events-none" />
+
+      {/* Hero copy */}
+      <div className="relative z-[2] max-w-2xl py-12 md:py-20">
+        <div className="inline-flex items-center gap-2 bg-white/10 border border-white/30 text-white/90 text-xs font-medium tracking-widest uppercase px-4 py-1.5 rounded-full mb-7 backdrop-blur-sm w-fit">
           ✦ eBooking Nepal&#39;s Premier Tour Curator
         </div>
         <h1 className="font-serif text-[clamp(2.4rem,5vw,4.4rem)] font-light leading-[1.12] text-white mb-5 tracking-tight">

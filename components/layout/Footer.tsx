@@ -13,7 +13,7 @@ const support = ['FAQs', 'Booking Policy', 'Cancellation Terms', 'Travel Insuran
 
 export default function Footer() {
   return (
-    <footer className="bg-[#1F2937] text-white/80 pt-16 pb-8 mt-0">
+    <footer className="bg-[#0f4c81] text-white/80 pt-16 pb-8 mt-0">
       <div className="max-w-7xl mx-auto px-6 md:px-12">
 
         {/* Top grid */}

@@ -1,7 +1,10 @@
 import type { Metadata } from 'next';
+// app/layout.tsx
+import '@mantine/core/styles.css'; 
 import './globals.css';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
+import { MantineProvider } from '@mantine/core';
 
 export const metadata: Metadata = {
   title: 'eBooking Nepal — Premier Tour Curator',
@@ -13,7 +16,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body>
         <Header />
-        {children}
+        <MantineProvider>
+          {children}
+        </MantineProvider>
         <Footer />
       </body>
     </html>
