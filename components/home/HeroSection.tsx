@@ -7,14 +7,14 @@ interface Props {
 export default function HeroSection({ onExplore }: Props) {
   return (
     <section
-      className="h-screen bg-[url('/images/hero-bg.jpg')] bg-center bg-cover flex items-center px-6 md:px-12 pt-[68px] pb-20 relative"
+      className="h-screen bg-[url('/images/hero-bg.jpg')] bg-center bg-cover flex items-center px-6 md:px-12 pt-[68px] pb-24 relative"
       aria-label="Hero banner"
     >
       {/* Dark overlay */}
       <div className="absolute inset-0 z-[1] bg-gradient-to-br from-[rgba(4,12,24,0.85)] via-[rgba(4,12,24,0.54)] to-[rgba(4,12,24,0.18)]" />
 
-      {/* Bottom fade into snow — softens the hard cut before search bar */}
-      <div className="absolute bottom-0 inset-x-0 h-48 z-[1] bg-gradient-to-t from-snow/80 to-transparent pointer-events-none" />
+      {/* Bottom fade — tall enough to sit behind the overlapping search card */}
+      <div className="absolute bottom-0 inset-x-0 h-64 z-[1] bg-gradient-to-t from-snow via-snow/60 to-transparent pointer-events-none" />
 
       {/* Hero copy */}
       <div className="relative z-[2] max-w-2xl py-12 md:py-20">
