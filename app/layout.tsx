@@ -1,25 +1,31 @@
+'use client'; 
+
 import type { Metadata } from 'next';
-// app/layout.tsx
+import { usePathname } from 'next/navigation';
 import '@mantine/core/styles.css'; 
 import './globals.css';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { MantineProvider } from '@mantine/core';
 
-export const metadata: Metadata = {
-  title: 'eBooking Nepal — Premier Tour Curator',
-  description: 'Discover curated tours in Nepal — from Everest treks to cultural heritage journeys.',
-};
-
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  
+  
+  const isDashboard = pathname?.startsWith('/dashboard');
+
   return (
     <html lang="en">
       <body>
-        <Header />
+        {/* Only show the marketing Header if NOT on a dashboard page */}
+        {!isDashboard && <Header />}
+        
         <MantineProvider>
           {children}
         </MantineProvider>
-        <Footer />
+        
+        {/* Only show the marketing Footer if NOT on a dashboard page */}
+        {!isDashboard && <Footer />}
       </body>
     </html>
   );
