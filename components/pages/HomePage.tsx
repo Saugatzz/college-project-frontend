@@ -18,31 +18,50 @@ export default function HomePage() {
 
   return (
     <main id="main-content">
-      {/* Hero — pb makes room so the search card overlaps from inside */}
-      <div className="relative">
-        {/* Extra bottom padding creates the "shelf" the search card sits in */}
-        <div className="pb-[100px] sm:pb-[52px]">
-          <HeroSection onExplore={scrollToTours} />
-        </div>
+      {/*
+        Mobile:  search card sits BELOW the hero, flows in normal document flow.
+                 No overlap trick — hero is fully visible, card appears underneath.
+        sm+:     search card is absolutely positioned at hero bottom, peeking 50% out.
+                 bg-snow section gets top padding to catch the overflowing half.
+      */}
 
-        {/* Search card: pulled up with negative margin so it straddles the hero bottom */}
-        <div className="relative z-20 -mt-[100px] sm:-mt-[52px] px-4 sm:px-8 md:px-12">
+      {/* ── Hero + search card wrapper ── */}
+      <div className="relative">
+        <HeroSection onExplore={scrollToTours} />
+
+        {/* 
+          sm+: absolute, anchored to hero bottom, translate down by half its height.
+          mobile: relative, hidden from absolute flow — rendered below instead.
+        */}
+        <div
+          className="
+            hidden sm:block
+            absolute bottom-0 inset-x-0 z-20
+            translate-y-1/2
+            px-4 sm:px-8 md:px-12
+          "
+        >
           <div className="max-w-[860px] mx-auto">
             <SearchSection onSearch={handleHeroSearch} />
           </div>
         </div>
       </div>
 
-      {/* Breathing room between search card and tours */}
-      <div className="h-10 sm:h-12 bg-snow" />
+      {/* Mobile-only search card — flows naturally below the hero */}
+      <div className="sm:hidden bg-snow px-4 pt-4 pb-2">
+        <SearchSection onSearch={handleHeroSearch} />
+      </div>
 
-      <ToursSection
-        filters={filters}
-        filtered={filtered}
-        activeFilterCount={activeFilterCount}
-        onUpdate={update}
-        onClear={clear}
-      />
+      {/* Tours section — sm+ needs top padding to clear the peeking card */}
+      <div className="bg-snow pt-4 sm:pt-12 md:pt-10">
+        <ToursSection
+          filters={filters}
+          filtered={filtered}
+          activeFilterCount={activeFilterCount}
+          onUpdate={update}
+          onClear={clear}
+        />
+      </div>
     </main>
   );
 }

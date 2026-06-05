@@ -7,14 +7,24 @@ interface Props {
 export default function HeroSection({ onExplore }: Props) {
   return (
     <section
-      className="h-screen bg-[url('/images/hero-bg.jpg')] bg-center bg-cover flex items-center px-6 md:px-12 pt-[68px] pb-24 relative"
+      className="
+        h-screen min-h-[600px]
+        bg-[url('/images/hero-bg.jpg')] bg-center bg-cover
+        flex items-center
+        px-6 md:px-12
+        pt-[68px]
+        /* Mobile: no extra bottom padding — search card flows below, not inside */
+        /* sm+: bottom padding reserves space so hero image shows behind the peek area */
+        pb-10 sm:pb-[60px]
+        relative overflow-visible
+      "
       aria-label="Hero banner"
     >
       {/* Dark overlay */}
       <div className="absolute inset-0 z-[1] bg-gradient-to-br from-[rgba(4,12,24,0.85)] via-[rgba(4,12,24,0.54)] to-[rgba(4,12,24,0.18)]" />
 
-      {/* Bottom fade — tall enough to sit behind the overlapping search card */}
-      <div className="absolute bottom-0 inset-x-0 h-64 z-[1] bg-gradient-to-t from-snow via-snow/60 to-transparent pointer-events-none" />
+      {/* Bottom fade */}
+      <div className="absolute bottom-0 inset-x-0 h-32 z-[1] bg-gradient-to-t from-black/30 to-transparent pointer-events-none" />
 
       {/* Hero copy */}
       <div className="relative z-[2] max-w-2xl py-12 md:py-20">
