@@ -1,4 +1,5 @@
-import { REVIEWS } from "@/lib/constants";
+import { REVIEWS } from "@/lib/constant";
+
 
 export default function ReviewList() {
   return (

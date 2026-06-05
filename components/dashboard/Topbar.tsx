@@ -4,13 +4,13 @@ import { usePathname } from "next/navigation";
 import Button from "@/components/ui/Button";
 
 const pageTitles: Record<string, string> = {
-  "/": "Overview",
-  "/tours": "Tours",
-  "/bookings": "Bookings",
-  "/customers": "Customers",
-  "/analytics": "Analytics",
-  "/reviews": "Reviews",
-  "/settings": "Settings",
+  "/dashboard": "Overview",
+  "/dashboard/tours": "Tours",
+  "/dashboard/bookings": "Bookings",
+  "/dashboard/customers": "Customers",
+  "/dashboard/analytics": "Analytics",
+  "/dashboard/reviews": "Reviews",
+  "/dashboard/settings": "Settings",
 };
 
 export default function Topbar() {
