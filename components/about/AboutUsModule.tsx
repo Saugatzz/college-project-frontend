@@ -65,7 +65,7 @@ const stats = [
   { n: '10', l: 'Years of Trust' },
 ];
 
-// Gradient avatar colors per person
+
 const avatarGradients = [
   'from-sky-accent to-sky-dark',
   'from-teal-500 to-emerald-600',
@@ -85,7 +85,7 @@ export default function AboutPage() {
           aria-label="About hero"
         >
           <div className="absolute inset-0 bg-gradient-to-br from-[rgba(4,12,24,0.85)] via-[rgba(4,12,24,0.58)] to-[rgba(4,12,24,0.22)]" />
-          {/* Bottom fade */}
+          
           <div className="absolute bottom-0 inset-x-0 h-32 bg-gradient-to-t from-mist to-transparent pointer-events-none" />
 
           <div className="relative z-10 max-w-2xl">
@@ -101,7 +101,7 @@ export default function AboutPage() {
           </div>
         </section>
 
-        {/* ── Mission ── */}
+       
         <section className="bg-mist py-20 px-6 md:px-12">
           <div className="max-w-5xl mx-auto grid md:grid-cols-2 gap-14 items-center">
             <div>
