@@ -1,5 +1,6 @@
 import Badge from "@/components/ui/Badge";
-import { TOURS } from "@/lib/constants";
+import { TOURS } from "@/lib/constant";
+
 
 export default function TourTable() {
   return (

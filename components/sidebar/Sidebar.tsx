@@ -9,23 +9,23 @@ const navGroups = [
   {
     label: "Main",
     items: [
-      { href: "/", icon: "grid", label: "Overview" },
-      { href: "/tours", icon: "map-2", label: "Tours", badge: "24" },
-      { href: "/bookings", icon: "calendar-check", label: "Bookings", badge: "8", badgeVariant: "blue" as const },
-      { href: "/customers", icon: "users", label: "Customers" },
+      { href: "/dashboard",           icon: "grid",           label: "Overview" },
+      { href: "/dashboard/tours",     icon: "map-2",          label: "Tours",    badge: "24" },
+      { href: "/dashboard/bookings",  icon: "calendar-check", label: "Bookings", badge: "8", badgeVariant: "blue" as const },
+      { href: "/dashboard/customers", icon: "users",          label: "Customers" },
     ],
   },
   {
     label: "Insights",
     items: [
-      { href: "/analytics", icon: "chart-bar", label: "Analytics" },
-      { href: "/reviews", icon: "star", label: "Reviews", badge: "3" },
+      { href: "/dashboard/analytics", icon: "chart-bar", label: "Analytics" },
+      { href: "/dashboard/reviews",   icon: "star",      label: "Reviews",  badge: "3" },
     ],
   },
   {
     label: "Config",
     items: [
-      { href: "/settings", icon: "settings", label: "Settings" },
+      { href: "/dashboard/settings",  icon: "settings",  label: "Settings" },
     ],
   },
 ];
@@ -61,8 +61,8 @@ export default function Sidebar() {
                 badge={item.badge}
                 badgeVariant={item.badgeVariant}
                 active={
-                  item.href === "/"
-                    ? pathname === "/"
+                  item.href === "/dashboard"
+                    ? pathname === "/dashboard"
                     : pathname.startsWith(item.href)
                 }
               />
