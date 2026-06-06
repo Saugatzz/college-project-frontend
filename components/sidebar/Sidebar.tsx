@@ -1,37 +1,66 @@
 "use client";
 
-import Link from "next/link";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import SidebarItem from "./SidebarItem";
 import SidebarGroup from "./SidebarGroup";
+import api from "@/lib/api/api";
 
-const navGroups = [
-  {
-    label: "Main",
-    items: [
-      { href: "/dashboard",           icon: "grid",           label: "Overview" },
-      { href: "/dashboard/tours",     icon: "map-2",          label: "Tours",    badge: "24" },
-      { href: "/dashboard/bookings",  icon: "calendar-check", label: "Bookings", badge: "8", badgeVariant: "blue" as const },
-      { href: "/dashboard/customers", icon: "users",          label: "Customers" },
-    ],
-  },
-  {
-    label: "Insights",
-    items: [
-      { href: "/dashboard/analytics", icon: "chart-bar", label: "Analytics" },
-      { href: "/dashboard/reviews",   icon: "star",      label: "Reviews",  badge: "3" },
-    ],
-  },
-  {
-    label: "Config",
-    items: [
-      { href: "/dashboard/settings",  icon: "settings",  label: "Settings" },
-    ],
-  },
-];
+interface ContactMessage { id: number; read: boolean; }
+interface Booking { id: number; }
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [bookingCount, setBookingCount] = useState(0);
+
+  useEffect(() => {
+    api.get<ContactMessage[]>('/contacts')
+      .then(({ data }) => setUnreadCount(data.filter(c => !c.read).length))
+      .catch(() => {});
+
+    api.get<Booking[]>('/bookings')
+      .then(({ data }) => setBookingCount(data.length))
+      .catch(() => {});
+  }, [pathname]);
+
+  const navGroups = [
+    {
+      label: "Main",
+      items: [
+        { href: "/dashboard",           icon: "grid",           label: "Overview" },
+        { href: "/dashboard/tours",     icon: "map-2",          label: "Tours",    badge: "24" },
+        {
+          href: "/dashboard/bookings",
+          icon: "calendar-check",
+          label: "Bookings",
+          badge: bookingCount > 0 ? String(bookingCount) : undefined,
+          badgeVariant: "blue" as const,
+        },
+        { href: "/dashboard/customers", icon: "users",          label: "Customers" },
+        {
+          href: "/dashboard/messages",
+          icon: "mail",
+          label: "Messages",
+          badge: unreadCount > 0 ? String(unreadCount) : undefined,
+          badgeVariant: "blue" as const,
+        },
+      ],
+    },
+    {
+      label: "Insights",
+      items: [
+        { href: "/dashboard/analytics", icon: "chart-bar", label: "Analytics" },
+        { href: "/dashboard/reviews",   icon: "star",      label: "Reviews",  badge: "3" },
+      ],
+    },
+    {
+      label: "Config",
+      items: [
+        { href: "/dashboard/settings",  icon: "settings",  label: "Settings" },
+      ],
+    },
+  ];
 
   return (
     <aside className="w-[230px] min-w-[230px] bg-white border-r border-gray-100 flex flex-col h-full">
