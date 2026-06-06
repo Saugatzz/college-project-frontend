@@ -1,66 +1,98 @@
 'use client';
 import { useState, useMemo } from 'react';
-import type { Category, Tour } from '@/types/tour';
-import { TOURS } from '@/data/tours';
+import type { Tour } from '@/types/tour';
 
-export interface FilterState {
-  keyword: string;
-  category: Category | 'all';
-  rating: string;
-  budgets: number[][];
-  durations: number[][];
-  familyOnly: boolean;
-  freeCancellation?: boolean;
-  deals?: boolean;
-  newOnly?: boolean;
-  startTimes?: string[];
-}
-
-const defaultFilters: FilterState = {
-  keyword: '',
-  category: 'all',
-  rating: 'any',
-  budgets: [],
-  durations: [],
-  familyOnly: false,
-  freeCancellation: false,
-  deals: false,
-  newOnly: false,
-  startTimes: [],
+export type FilterState = {
+  keyword:         string;
+  category:        string;
+  rating:          string;
+  freeCancellation:boolean;
+  deals:           boolean;
+  familyOnly:      boolean;
+  newOnly:         boolean;
+  budgets:         number[][];
+  startTimes:      string[];
+  durations:       number[][];
 };
 
-function fuzzyMatch(tour: Tour, keyword: string): boolean {
-  if (!keyword) return true;
-  const haystack = [tour.name, tour.tagline, tour.category, tour.difficulty, tour.duration, ...tour.tags]
-    .join(' ')
-    .toLowerCase();
-  return keyword.trim().split(/\s+/).every(word => haystack.includes(word));
-}
+const DEFAULTS: FilterState = {
+  keyword:         '',
+  category:        'all',
+  rating:          'any',
+  freeCancellation:false,
+  deals:           false,
+  familyOnly:      false,
+  newOnly:         false,
+  budgets:         [],
+  startTimes:      [],
+  durations:       [],
+};
 
-export function useFilters() {
-  const [filters, setFilters] = useState<FilterState>(defaultFilters);
+export function useFilters(tours: Tour[]) {
+  const [filters, setFilters] = useState<FilterState>({ ...DEFAULTS });
 
   const filtered = useMemo(() => {
-    return TOURS.filter(t => {
-      if (filters.category !== 'all' && t.category !== filters.category) return false;
-      if (!fuzzyMatch(t, filters.keyword.toLowerCase())) return false;
-      if (filters.budgets.length && !filters.budgets.some(([mn, mx]) => t.price >= mn && t.price <= mx)) return false;
-      if (filters.durations.length && !filters.durations.some(([mn, mx]) => t.days >= mn && t.days <= mx)) return false;
-      if (filters.familyOnly && t.difficulty !== 'easy') return false;
+    return tours.filter(tour => {
+      // Keyword
+      if (filters.keyword) {
+        const kw = filters.keyword.toLowerCase();
+        const match =
+          tour.name.toLowerCase().includes(kw)        ||
+          tour.tagline.toLowerCase().includes(kw)     ||
+          tour.description.toLowerCase().includes(kw);
+        if (!match) return false;
+      }
+
+      // Category
+      if (filters.category !== 'all' && tour.category !== filters.category)
+        return false;
+
+      // Rating
+      if (filters.rating !== 'any') {
+        const min = Number(filters.rating);
+        if (tour.rating < min) return false;
+      }
+
+      // Budget ranges — tour must fall in at least one checked range
+      if (filters.budgets.length > 0) {
+        const inRange = filters.budgets.some(
+          ([min, max]) => tour.price >= min && tour.price <= max
+        );
+        if (!inRange) return false;
+      }
+
+      // Duration ranges — tour must fall in at least one checked range
+      if (filters.durations.length > 0) {
+        const days = Number(tour.duration); // works if duration is stored as number
+        const inRange = filters.durations.some(
+          ([min, max]) => days >= min && days <= max
+        );
+        if (!inRange) return false;
+      }
+
       return true;
     });
+  }, [tours, filters]);
+
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (filters.keyword)              count++;
+    if (filters.category !== 'all')   count++;
+    if (filters.rating   !== 'any')   count++;
+    if (filters.freeCancellation)     count++;
+    if (filters.deals)                count++;
+    if (filters.familyOnly)           count++;
+    if (filters.newOnly)              count++;
+    if (filters.budgets.length   > 0) count++;
+    if (filters.durations.length > 0) count++;
+    if (filters.startTimes.length > 0) count++;
+    return count;
   }, [filters]);
 
-  const activeFilterCount = [
-    filters.keyword,
-    filters.rating !== 'any' ? filters.rating : '',
-    ...filters.budgets,
-    ...filters.durations,
-    filters.familyOnly ? 'family' : '',
-  ].filter(Boolean).length;
+  const update = (patch: Partial<FilterState>) =>
+    setFilters(f => ({ ...f, ...patch }));
 
-  const clear = () => setFilters(defaultFilters);
-  const update = (patch: Partial<FilterState>) => setFilters(prev => ({ ...prev, ...patch }));
+  const clear = () => setFilters({ ...DEFAULTS });
 
   return { filters, filtered, activeFilterCount, update, clear };
 }
