@@ -1,10 +1,10 @@
 "use client";
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
-import { TOURS } from "@/data/tours";
+import type { Tour } from "@/types/tour";
 import {
   TextInput,
   Textarea,
@@ -119,9 +119,49 @@ function FakeQRCode({ label, color }: { label: string; color: string }) {
 export default function CheckoutClient() {
   const params = useSearchParams();
   const router = useRouter();
-  const tourId = Number(params.get("tourId"));
+  const tourId = params.get("tourId");
   const addonParam = params.get("addons") ?? "";
-  const tour = TOURS.find((t) => t.id === tourId) ?? null;
+
+  // ── Fetch tour from backend instead of static TOURS array ──
+  const [tour, setTour] = useState<Tour | null>(null);
+  const [tourLoading, setTourLoading] = useState(true);
+
+  useEffect(() => {
+    if (!tourId) {
+      setTourLoading(false);
+      return;
+    }
+    api
+      .get(`/packages/${tourId}`)
+      .then(({ data: d }) => {
+        const mapped: Tour = {
+          id:          d.id,
+          name:        d.title,
+          tagline:     d.tagline ?? "",
+          image:       d.heroImage ?? "",
+          heroImage:   d.heroImage ?? "",
+          badge:       d.badge ?? "",
+          category:    d.category?.toLowerCase() ?? "trek",
+          difficulty:  d.difficulty?.toLowerCase() ?? "moderate",
+          duration:    `${d.durationDays} Days`,
+          days:        d.durationDays,
+          price:       parseFloat(d.basePrice) || 0,
+          rating:      parseFloat(d.rating) || 0,
+          reviewCount: d.reviewCount ?? 0,
+          tags:        [],
+          description: d.description ?? "",
+          gallery:     (d.images ?? []).map((img: any) => ({ src: img.src, alt: img.alt })),
+          itinerary:   (d.itineraries ?? []).map((it: any) => ({ title: it.title, desc: it.description })),
+          highlights:  (d.highlights ?? []).map((h: any) => ({ icon: h.icon, title: h.title, desc: h.desc })),
+          includes:    (d.inclusions ?? []).filter((i: any) => i.included).map((i: any) => i.text),
+          excludes:    (d.inclusions ?? []).filter((i: any) => !i.included).map((i: any) => i.text),
+          addons:      (d.addons ?? []).map((a: any) => ({ name: a.name, desc: a.desc, price: parseFloat(a.price) || 0 })),
+        };
+        setTour(mapped);
+      })
+      .catch(() => setTour(null))
+      .finally(() => setTourLoading(false));
+  }, [tourId]);
 
   const selectedAddonIndices: number[] = useMemo(() => {
     if (!addonParam) return [];
@@ -131,13 +171,7 @@ export default function CheckoutClient() {
       .filter((n) => !isNaN(n));
   }, [addonParam]);
 
-  const addonTotal = useMemo(() => {
-    if (!tour) return 0;
-    return selectedAddonIndices.reduce(
-      (sum, i) => sum + (tour.addons[i]?.price ?? 0),
-      0,
-    );
-  }, [tour, selectedAddonIndices]);
+
 
   const [step, setStep] = useState(0);
   const [agreed, setAgreed] = useState(false);
@@ -194,6 +228,13 @@ export default function CheckoutClient() {
     },
     validateInputOnBlur: true,
   });
+  const addonTotal = useMemo(() => {
+  if (!tour) return 0;
+  return selectedAddonIndices.reduce(
+    (sum, i) => sum + (tour.addons[i]?.price ?? 0),
+    0,
+  ) * form.values.travelers;
+}, [tour, selectedAddonIndices, form.values.travelers]);
 
   const baseTotal = (tour?.price ?? 0) * form.values.travelers;
   const grandTotal = baseTotal + addonTotal;
@@ -226,9 +267,7 @@ export default function CheckoutClient() {
       if (["cardNumber", "expiry", "cvv"].some((f) => result.errors[f])) return;
     } else {
       if (!txFile) {
-        setTxFileError(
-          "Please upload your transaction receipt PDF to continue",
-        );
+        setTxFileError("Please upload your transaction receipt PDF to continue");
         return;
       }
     }
@@ -242,7 +281,7 @@ export default function CheckoutClient() {
         .map((a) => ({ name: a!.name, price: a!.price }));
 
       const payload = {
-        tourId,
+        tourId: Number(tourId),
         firstName: form.values.firstName,
         lastName: form.values.lastName,
         email: form.values.email,
@@ -327,6 +366,20 @@ export default function CheckoutClient() {
     error: { fontSize: rem(12), marginTop: rem(4) },
   };
 
+  // ── Loading state ──
+  if (tourLoading) {
+    return (
+      <>
+        <Header />
+        <main className="min-h-screen bg-mist pt-[68px] flex items-center justify-center">
+          <Loader size="lg" color="blue" />
+        </main>
+        <Footer />
+      </>
+    );
+  }
+
+  // ── No tour found ──
   if (!tour) {
     return (
       <>
@@ -357,6 +410,7 @@ export default function CheckoutClient() {
     <>
       <Header />
       <main className="min-h-screen bg-mist pt-[68px]">
+        {/* ── Step indicator ── */}
         <div
           style={{
             background:
@@ -454,6 +508,7 @@ export default function CheckoutClient() {
         </div>
 
         <div className="max-w-4xl mx-auto px-6 md:px-12 py-10 grid lg:grid-cols-[1fr_340px] gap-8 items-start">
+          {/* ── Step 0: Your Details ── */}
           {step === 0 && (
             <Paper
               shadow="sm"
@@ -579,6 +634,7 @@ export default function CheckoutClient() {
             </Paper>
           )}
 
+          {/* ── Step 1: Review ── */}
           {step === 1 && (
             <Paper
               shadow="sm"
@@ -775,6 +831,7 @@ export default function CheckoutClient() {
             </Paper>
           )}
 
+          {/* ── Step 2: Payment ── */}
           {step === 2 && (
             <Paper
               shadow="sm"
@@ -868,7 +925,9 @@ export default function CheckoutClient() {
                       maxLength={5}
                       {...form.getInputProps("expiry")}
                       onChange={(e) => {
-                        let val = e.target.value.replace(/\D/g, "").slice(0, 4);
+                        let val = e.target.value
+                          .replace(/\D/g, "")
+                          .slice(0, 4);
                         if (val.length >= 3)
                           val = val.slice(0, 2) + "/" + val.slice(2);
                         form.setFieldValue("expiry", val);
@@ -1145,6 +1204,7 @@ export default function CheckoutClient() {
             </Paper>
           )}
 
+          {/* ── Order summary sidebar ── */}
           <aside>
             <Paper
               shadow="sm"
@@ -1293,6 +1353,7 @@ export default function CheckoutClient() {
           </aside>
         </div>
       </main>
+      <Footer />
     </>
   );
 }

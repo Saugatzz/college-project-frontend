@@ -1,13 +1,12 @@
 // src/components/admin/TourTable.tsx
 'use client';
 import { useState, useEffect } from 'react';
-import { ActionIcon, Badge as MBadge, Text, Button } from '@mantine/core';
+import { ActionIcon, Badge as MBadge, Text, Button, Switch } from '@mantine/core';
 import { IconEdit, IconTrash, IconPlus } from '@tabler/icons-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import MantineTable from '../common/MantineTable';
 import AddTourModal from './AddTourModal';
-
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+import api from '@/lib/api/api';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 export interface TourItinerary { id?: number; dayNumber: number; title: string; description: string }
@@ -39,36 +38,29 @@ export interface Package {
   images:      TourImage[];
 }
 
-// ── API helpers (inline) ─────────────────────────────────────────────────────
+// ── API helpers ──────────────────────────────────────────────────────────────
 async function apiFetchAll(): Promise<Package[]> {
-  const res = await fetch(`${BASE}/packages`);
-  if (!res.ok) throw new Error('Failed to fetch packages');
-  return res.json();
+  const { data } = await api.get<Package[]>('/packages/admin/all');
+  return data;
 }
 
-export async function apiCreate(data: unknown): Promise<Package> {
-  const res = await fetch(`${BASE}/packages`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) throw new Error('Failed to create package');
-  return res.json();
+export async function apiCreate(payload: unknown): Promise<Package> {
+  const { data } = await api.post<Package>('/packages', payload);
+  return data;
 }
 
-export async function apiUpdate(id: number, data: unknown): Promise<Package> {
-  const res = await fetch(`${BASE}/packages/${id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) throw new Error('Failed to update package');
-  return res.json();
+export async function apiUpdate(id: number, payload: unknown): Promise<Package> {
+  const { data } = await api.put<Package>(`/packages/${id}`, payload);
+  return data;
+}
+
+async function apiToggleActive(id: number): Promise<Package> {
+  const { data } = await api.patch<Package>(`/packages/${id}/toggle-active`);
+  return data;
 }
 
 async function apiDelete(id: number): Promise<void> {
-  const res = await fetch(`${BASE}/packages/${id}`, { method: 'DELETE' });
-  if (!res.ok) throw new Error('Failed to delete package');
+  await api.delete(`/packages/${id}`);
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -82,8 +74,8 @@ export default function TourTable() {
   const [loading,    setLoading]    = useState(true);
   const [modalOpen,  setModalOpen]  = useState(false);
   const [editTarget, setEditTarget] = useState<Package | null>(null);
+  const [togglingId, setTogglingId] = useState<number | null>(null);
 
-  // Fetch on mount
   useEffect(() => {
     apiFetchAll()
       .then(setData)
@@ -96,6 +88,16 @@ export default function TourTable() {
     setData(prev => prev.filter(p => p.id !== id));
   };
 
+  const handleToggleActive = async (pkg: Package) => {
+    setTogglingId(pkg.id);
+    try {
+      const updated = await apiToggleActive(pkg.id);
+      setData(prev => prev.map(p => p.id === updated.id ? updated : p));
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
   const handleSaved = (pkg: Package) => {
     setData(prev => {
       const idx = prev.findIndex(p => p.id === pkg.id);
@@ -106,6 +108,19 @@ export default function TourTable() {
       }
       return [...prev, pkg];
     });
+    setEditTarget(null);
+    setModalOpen(false);
+  };
+
+  const openEdit = (id: number) => {
+    const fresh = data.find(p => p.id === id) ?? null;
+    setEditTarget(fresh);
+    setModalOpen(true);
+  };
+
+  const openAdd = () => {
+    setEditTarget(null);
+    setModalOpen(true);
   };
 
   const columns: ColumnDef<Package, any>[] = [
@@ -169,20 +184,34 @@ export default function TourTable() {
     {
       accessorKey: 'isActive',
       header: 'Status',
-      cell: ({ getValue }) => (
-        <MBadge
-          color={getValue<boolean>() ? 'teal' : 'gray'}
-          variant="light" size="sm" radius="xl"
-        >
-          {getValue<boolean>() ? 'Active' : 'Inactive'}
-        </MBadge>
-      ),
+      cell: ({ row }) => {
+        const pkg = row.original;
+        const isToggling = togglingId === pkg.id;
+        return (
+          <div className="flex items-center gap-2">
+            <Switch
+              size="sm"
+              checked={pkg.isActive}
+              disabled={isToggling}
+              onChange={() => handleToggleActive(pkg)}
+              color="teal"
+            />
+            <MBadge
+              color={pkg.isActive ? 'teal' : 'gray'}
+              variant="light"
+              size="sm"
+              radius="xl"
+            >
+              {pkg.isActive ? 'Active' : 'Inactive'}
+            </MBadge>
+          </div>
+        );
+      },
     },
   ];
 
   return (
     <>
-      {/* Header row */}
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-base font-semibold text-gray-800">All Tours</h2>
@@ -194,7 +223,7 @@ export default function TourTable() {
           leftSection={<IconPlus size={15} />}
           size="sm"
           radius="xl"
-          onClick={() => { setEditTarget(null); setModalOpen(true); }}
+          onClick={openAdd}
           styles={{
             root: {
               background: 'linear-gradient(135deg, #2E86C1, #1A5276)',
@@ -217,7 +246,7 @@ export default function TourTable() {
             <div className="flex items-center gap-1">
               <ActionIcon
                 size="sm" variant="subtle" color="blue"
-                onClick={() => { setEditTarget(row as Package); setModalOpen(true); }}
+                onClick={() => openEdit((row as Package).id)}
               >
                 <IconEdit size={14} />
               </ActionIcon>
@@ -234,7 +263,7 @@ export default function TourTable() {
 
       <AddTourModal
         opened={modalOpen}
-        onClose={() => setModalOpen(false)}
+        onClose={() => { setModalOpen(false); setEditTarget(null); }}
         onSaved={handleSaved}
         editData={editTarget}
       />
