@@ -20,32 +20,31 @@ import {
 } from '@tabler/icons-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-// MRT_ColumnDef<T>  →  ColumnDef<T, any>
-// MRT_Row<T>        →  Row<T>
-// Props kept identical to the original MantineReactTable wrapper
 type CommonMantineTableProps<T extends Record<string, any>> = {
   data: T[];
   columns: ColumnDef<T, any>[];
-  enableColumnFilters?: boolean;   // kept for API compatibility (column filter UI not shown by default)
+  enableColumnFilters?: boolean;
   enableGlobalFilter?: boolean;
   renderRowActions?: (row: T) => React.ReactNode;
   enablePagination?: boolean;
   renderBottomToolbar?: boolean;
   renderDetailPanel?: (props: { row: Row<T> }) => React.ReactNode;
+  onRowClick?: (row: T) => void;         // ← new
 };
 
 // ── Component ─────────────────────────────────────────────────────────────────
 function MantineTable<T extends Record<string, any>>({
   data,
   columns,
-  enableColumnFilters = true,   // reserved — wire up later if needed
+  enableColumnFilters = true,
   enableGlobalFilter  = true,
-  enablePagination    = false,  // same default as original
-  renderBottomToolbar = false,  // same default as original
+  enablePagination    = false,
+  renderBottomToolbar = false,
   renderRowActions,
   renderDetailPanel,
+  onRowClick,                            // ← new
 }: CommonMantineTableProps<T>) {
-  const [sorting, setSorting]         = useState<SortingState>([]);
+  const [sorting, setSorting]           = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
 
@@ -117,7 +116,6 @@ function MantineTable<T extends Record<string, any>>({
         <Table.Thead style={{ background: '#fafbfc', borderBottom: '1px solid #f0f4f8' }}>
           {table.getHeaderGroups().map(headerGroup => (
             <Table.Tr key={headerGroup.id}>
-              {/* Expand column */}
               {hasDetail && <Table.Th style={{ width: rem(40), padding: `${rem(10)} ${rem(8)}` }} />}
 
               {headerGroup.headers.map(header => (
@@ -152,7 +150,6 @@ function MantineTable<T extends Record<string, any>>({
                 </Table.Th>
               ))}
 
-              {/* Actions column header */}
               {hasActions && (
                 <Table.Th style={{ width: rem(80), padding: `${rem(10)} ${rem(16)}` }}>
                   <Text fz={11} fw={600} c="gray.5" style={{ letterSpacing: '0.08em', textTransform: 'uppercase' }}>
@@ -178,8 +175,14 @@ function MantineTable<T extends Record<string, any>>({
           ) : (
             table.getRowModel().rows.map(row => (
               <React.Fragment key={row.id}>
-                <Table.Tr style={{ borderBottom: '1px solid #f8fafc', transition: 'background 0.15s' }}>
-
+                <Table.Tr
+                  style={{
+                    borderBottom: '1px solid #f8fafc',
+                    transition: 'background 0.15s',
+                    cursor: onRowClick ? 'pointer' : 'default',
+                  }}
+                  onClick={() => onRowClick?.(row.original)}
+                >
                   {/* Expand toggle */}
                   {hasDetail && (
                     <Table.Td style={{ padding: `${rem(12)} ${rem(8)}`, width: rem(40) }}>
@@ -187,7 +190,10 @@ function MantineTable<T extends Record<string, any>>({
                         size="xs"
                         variant="subtle"
                         color="gray"
-                        onClick={() => toggleRow(row.id)}
+                        onClick={(e) => {
+                          e.stopPropagation(); // don't trigger row click
+                          toggleRow(row.id);
+                        }}
                       >
                         {expandedRows[row.id]
                           ? <IconChevronUp size={13} />
@@ -205,7 +211,10 @@ function MantineTable<T extends Record<string, any>>({
 
                   {/* Row actions */}
                   {hasActions && (
-                    <Table.Td style={{ padding: `${rem(12)} ${rem(16)}` }}>
+                    <Table.Td
+                      style={{ padding: `${rem(12)} ${rem(16)}` }}
+                      onClick={(e) => e.stopPropagation()} // don't trigger row click
+                    >
                       {renderRowActions!(row.original)}
                     </Table.Td>
                   )}
@@ -269,5 +278,4 @@ function MantineTable<T extends Record<string, any>>({
 
 export default MantineTable;
 export type { CommonMantineTableProps };
-// Re-export Row so consumers can type renderDetailPanel without extra imports
 export type { Row as MRT_Row, ColumnDef as MRT_ColumnDef } from '@tanstack/react-table';

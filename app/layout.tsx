@@ -13,19 +13,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   
   
   const isDashboard = pathname?.startsWith('/dashboard');
+  const isAuthPage = pathname?.startsWith('/auth');
 
   return (
     <html lang="en">
       <body>
         {/* Only show the marketing Header if NOT on a dashboard page */}
-        {!isDashboard && <Header />}
+        {!isDashboard && !isAuthPage && <Header />}
         
         <MantineProvider>
           {children}
         </MantineProvider>
         
         {/* Only show the marketing Footer if NOT on a dashboard page */}
-        {!isDashboard && <Footer />}
+        {!isDashboard && !isAuthPage && <Footer />}
       </body>
     </html>
   );

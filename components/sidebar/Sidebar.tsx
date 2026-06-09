@@ -8,11 +8,13 @@ import api from "@/lib/api/api";
 
 interface ContactMessage { id: number; read: boolean; }
 interface Booking { id: number; }
+interface Tour { id: number; }
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const [unreadCount, setUnreadCount] = useState(0);
+  const [unreadCount, setUnreadCount]   = useState(0);
   const [bookingCount, setBookingCount] = useState(0);
+  const [tourCount, setTourCount]       = useState(0);
 
   useEffect(() => {
     api.get<ContactMessage[]>('/contacts')
@@ -22,6 +24,10 @@ export default function Sidebar() {
     api.get<Booking[]>('/bookings')
       .then(({ data }) => setBookingCount(data.length))
       .catch(() => {});
+
+    api.get<Tour[]>('/packages/admin/all')
+      .then(({ data }) => setTourCount(data.length))
+      .catch(() => {});
   }, [pathname]);
 
   const navGroups = [
@@ -29,7 +35,13 @@ export default function Sidebar() {
       label: "Main",
       items: [
         { href: "/dashboard",           icon: "grid",           label: "Overview" },
-        { href: "/dashboard/tours",     icon: "map-2",          label: "Tours",    badge: "24" },
+        {
+          href: "/dashboard/tours",
+          icon: "map-2",
+          label: "Tours",
+          badge: tourCount > 0 ? String(tourCount) : undefined,
+          badgeVariant: "blue" as const,
+        },
         {
           href: "/dashboard/bookings",
           icon: "calendar-check",
@@ -51,7 +63,7 @@ export default function Sidebar() {
       label: "Insights",
       items: [
         { href: "/dashboard/analytics", icon: "chart-bar", label: "Analytics" },
-        { href: "/dashboard/reviews",   icon: "star",      label: "Reviews",  badge: "3" },
+        { href: "/dashboard/reviews",   icon: "star",      label: "Reviews" },
       ],
     },
     {
@@ -63,19 +75,9 @@ export default function Sidebar() {
   ];
 
   return (
-    <aside className="w-[230px] min-w-[230px] bg-white border-r border-gray-100 flex flex-col h-full">
+    <aside className="w-[230px] min-w-[230px] bg-gray-300 border-r border-gray-100 shadow-[2px_0_12px_0_rgba(0,0,0,0.04)] flex flex-col h-full">
       {/* Brand */}
-      <div className="px-5 py-5 border-b border-gray-100">
-        <div className="flex items-center gap-1.5 mb-1">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#C9963B]" />
-          <span className="text-[10px] font-medium tracking-widest text-[#C9963B] uppercase">
-            Admin Panel
-          </span>
-        </div>
-        <h1 className="font-playfair text-xl font-semibold text-[#1a1a2e]">
-          Nepal Treks
-        </h1>
-      </div>
+      
 
       {/* Nav */}
       <nav className="flex-1 py-3 overflow-y-auto">
