@@ -2,10 +2,12 @@
 import React, { useState } from 'react';
 import { PasswordInput, Button } from '@mantine/core';
 import api from '@/lib/api/api';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { saveAuth } from '@/lib/auth/tokenStore';
 
 const LoginModule = () => {
-  const router = useRouter();
+  const router       = useRouter();
+  const searchParams = useSearchParams();
   const [email,    setEmail]    = useState('');
   const [password, setPassword] = useState('');
   const [loading,  setLoading]  = useState(false);
@@ -16,8 +18,12 @@ const LoginModule = () => {
     setLoading(true);
     setError('');
     try {
-      await api.post('/auth/login', { email, password });
-      router.push('/dashboard');
+      const { data } = await api.post('/auth/login', { email, password });
+      if (data.access_token) {
+        saveAuth(data.access_token, data.user);
+      }
+      const from = searchParams.get('from') || '/dashboard';
+      router.push(from);
     } catch (err: any) {
       setError(err?.response?.data?.message ?? 'Invalid email or password.');
     } finally {
@@ -29,7 +35,6 @@ const LoginModule = () => {
     <div className="min-h-screen bg-[#f7f8fc] flex items-center justify-center px-4">
       <div className="w-full max-w-[380px]">
 
-        {/* Brand */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 mb-2">
             <span className="w-1.5 h-1.5 rounded-full bg-[#C9963B]" />
@@ -41,7 +46,6 @@ const LoginModule = () => {
           <p className="text-[0.82rem] text-gray-400 mt-1">Sign in to your admin account</p>
         </div>
 
-        {/* Card */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-[0_4px_24px_rgba(30,80,120,0.07)] p-8">
 
           {error && (

@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import Header from '@/components/layout/Header';
 import api from '@/lib/api/api';
+import { Text } from '@mantine/core';
 
 function Toast({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   if (!visible) return null;
@@ -27,7 +28,7 @@ function Toast({ visible, onClose }: { visible: boolean; onClose: () => void }) 
   );
 }
 
-const WHATSAPP_NUMBER = '9779845439816'; // Nepal country code 977 + number
+const WHATSAPP_NUMBER = '9779845439816';
 
 const contactInfo = [
   {
@@ -72,7 +73,6 @@ const contactInfo = [
   {
     key: 'whatsapp',
     icon: (
-      // WhatsApp logo SVG
       <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
         <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
       </svg>
@@ -93,31 +93,83 @@ const subjects = [
   'General Question',
 ];
 
+type FormKey = 'name' | 'email' | 'subject' | 'message';
+type FormErrors = Partial<Record<FormKey, string>>;
+
+function validateEmail(email: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function validateForm(form: Record<FormKey, string>): FormErrors {
+  const errors: FormErrors = {};
+  if (!form.name.trim()) errors.name = 'Name is required.';
+  if (!form.email.trim()) {
+    errors.email = 'Email is required.';
+  } else if (!validateEmail(form.email)) {
+    errors.email = 'Please enter a valid email address.';
+  }
+  if (!form.message.trim()) errors.message = 'Message cannot be empty.';
+  else if (form.message.trim().length < 10) errors.message = 'Message must be at least 10 characters.';
+  return errors;
+}
+
 export default function ContactPage() {
-  const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' });
+  const [form, setForm] = useState<Record<FormKey, string>>({ name: '', email: '', subject: '', message: '' });
   const [focused, setFocused] = useState<string | null>(null);
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [touched, setTouched] = useState<Partial<Record<FormKey, boolean>>>({});
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [toastVisible, setToastVisible] = useState(false);
 
-  const inputBase = (key: string) =>
-    `bg-snow border rounded-xl px-4 py-3 text-[0.92rem] text-ink outline-none transition-all placeholder-pebble/50 ${
-      focused === key
+  const handleBlur = (key: FormKey) => {
+    setFocused(null);
+    setTouched(t => ({ ...t, [key]: true }));
+    // Validate single field on blur
+    const fieldErrors = validateForm(form);
+    setErrors(prev => ({ ...prev, [key]: fieldErrors[key] }));
+  };
+
+  const handleChange = (key: FormKey, value: string) => {
+    setForm(f => ({ ...f, [key]: value }));
+    // Clear error as user types (if field was already touched)
+    if (touched[key]) {
+      const updated = { ...form, [key]: value };
+      const fieldErrors = validateForm(updated);
+      setErrors(prev => ({ ...prev, [key]: fieldErrors[key] }));
+    }
+  };
+
+  const inputBase = (key: FormKey) => {
+    const hasError = touched[key] && errors[key];
+    return `bg-snow border rounded-xl px-4 py-3 text-[0.92rem] text-ink outline-none transition-all placeholder-pebble/50 ${
+      hasError
+        ? 'border-red-400 ring-2 ring-red-400/10 bg-red-50/30'
+        : focused === key
         ? 'border-sky-accent/70 ring-2 ring-sky-accent/10 bg-white'
         : 'border-sky-mid/25 hover:border-sky-mid/50'
     }`;
+  };
 
   const handleSubmit = async () => {
-    if (!form.name || !form.email || !form.message) return;
+    // Touch all fields and run full validation
+    const allTouched: Partial<Record<FormKey, boolean>> = { name: true, email: true, message: true };
+    setTouched(allTouched);
+    const formErrors = validateForm(form);
+    setErrors(formErrors);
+    if (Object.keys(formErrors).length > 0) return;
+
     setLoading(true);
-    setError(null);
+    setSubmitError(null);
     try {
       await api.post('/contacts', form);
       setForm({ name: '', email: '', subject: '', message: '' });
+      setTouched({});
+      setErrors({});
       setToastVisible(true);
       setTimeout(() => setToastVisible(false), 4000);
     } catch {
-      setError('Something went wrong. Please try again.');
+      setSubmitError('Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -170,33 +222,54 @@ export default function ContactPage() {
                 <p className="text-[0.87rem] text-stone font-light mb-8">Fill in the form below and we'll be in touch.</p>
 
                 <div className="grid sm:grid-cols-2 gap-4 mb-4">
-                  {([
-                    ['name', 'Your Name', 'text', 'Jane Doe'],
-                    ['email', 'Email Address', 'email', 'jane@example.com'],
-                  ] as const).map(([k, l, t, p]) => (
-                    <div key={k} className="flex flex-col gap-1.5">
-                      <label className="text-[0.72rem] font-semibold tracking-[0.10em] uppercase text-pebble">{l}</label>
-                      <input
-                        type={t}
-                        value={form[k]}
-                        placeholder={p}
-                        onFocus={() => setFocused(k)}
-                        onBlur={() => setFocused(null)}
-                        onChange={e => setForm(f => ({ ...f, [k]: e.target.value }))}
-                        className={inputBase(k)}
-                      />
-                    </div>
-                  ))}
+                  {/* Name */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[0.72rem] font-semibold tracking-[0.10em] uppercase text-pebble">
+                      Your Name <span className="text-red-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={form.name}
+                      placeholder="Jane Doe"
+                      onFocus={() => setFocused('name')}
+                      onBlur={() => handleBlur('name')}
+                      onChange={e => handleChange('name', e.target.value)}
+                      className={inputBase('name')}
+                    />
+                    {touched.name && errors.name && (
+                      <Text size="xs" c="red" mt={2}>{errors.name}</Text>
+                    )}
+                  </div>
+
+                  {/* Email */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[0.72rem] font-semibold tracking-[0.10em] uppercase text-pebble">
+                      Email Address <span className="text-red-400">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      value={form.email}
+                      placeholder="jane@example.com"
+                      onFocus={() => setFocused('email')}
+                      onBlur={() => handleBlur('email')}
+                      onChange={e => handleChange('email', e.target.value)}
+                      className={inputBase('email')}
+                    />
+                    {touched.email && errors.email && (
+                      <Text size="xs" c="red" mt={2}>{errors.email}</Text>
+                    )}
+                  </div>
                 </div>
 
+                {/* Subject */}
                 <div className="flex flex-col gap-1.5 mb-4">
                   <label className="text-[0.72rem] font-semibold tracking-[0.10em] uppercase text-pebble">Subject</label>
                   <div className="relative">
                     <select
                       value={form.subject}
-                      onChange={e => setForm(f => ({ ...f, subject: e.target.value }))}
+                      onChange={e => handleChange('subject', e.target.value)}
                       onFocus={() => setFocused('subject')}
-                      onBlur={() => setFocused(null)}
+                      onBlur={() => handleBlur('subject')}
                       className={`${inputBase('subject')} w-full appearance-none pr-10`}
                     >
                       <option value="">Select a topic...</option>
@@ -210,21 +283,27 @@ export default function ContactPage() {
                   </div>
                 </div>
 
+                {/* Message */}
                 <div className="flex flex-col gap-1.5 mb-8">
-                  <label className="text-[0.72rem] font-semibold tracking-[0.10em] uppercase text-pebble">Message</label>
+                  <label className="text-[0.72rem] font-semibold tracking-[0.10em] uppercase text-pebble">
+                    Message <span className="text-red-400">*</span>
+                  </label>
                   <textarea
                     rows={5}
                     value={form.message}
                     placeholder="Tell us about your dream trek, travel dates, group size, or anything else on your mind..."
                     onFocus={() => setFocused('message')}
-                    onBlur={() => setFocused(null)}
-                    onChange={e => setForm(f => ({ ...f, message: e.target.value }))}
+                    onBlur={() => handleBlur('message')}
+                    onChange={e => handleChange('message', e.target.value)}
                     className={`${inputBase('message')} resize-none`}
                   />
+                  {touched.message && errors.message && (
+                    <Text size="xs" c="red" mt={2}>{errors.message}</Text>
+                  )}
                 </div>
 
-                {error && (
-                  <p className="text-[0.82rem] text-red-500 mb-4 text-center">{error}</p>
+                {submitError && (
+                  <Text size="sm" c="red" ta="center" mb="md">{submitError}</Text>
                 )}
 
                 <button
@@ -261,7 +340,6 @@ export default function ContactPage() {
                 const isWhatsApp = c.whatsapp;
                 const inner = (
                   <>
-                    {/* Icon */}
                     <div className={`w-10 h-10 rounded-[12px] flex items-center justify-center flex-shrink-0 transition-all ${
                       isWhatsApp
                         ? 'bg-[#25D366] text-white shadow-[0_4px_14px_rgba(37,211,102,0.35)] group-hover:shadow-[0_6px_20px_rgba(37,211,102,0.50)]'
@@ -269,8 +347,6 @@ export default function ContactPage() {
                     }`}>
                       {c.icon}
                     </div>
-
-                    {/* Text */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
                         <p className={`text-[0.68rem] font-semibold tracking-[0.12em] uppercase ${isWhatsApp ? 'text-[#128C7E]' : 'text-pebble'}`}>
@@ -288,8 +364,6 @@ export default function ContactPage() {
                       </p>
                       <p className="text-[0.78rem] text-stone font-light mt-0.5">{c.sub}</p>
                     </div>
-
-                    {/* Arrow for WhatsApp */}
                     {isWhatsApp && (
                       <div className="flex-shrink-0 text-[#25D366] opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -300,29 +374,19 @@ export default function ContactPage() {
                   </>
                 );
 
-                // WhatsApp card — anchor tag, green highlight
                 if (isWhatsApp) {
                   return (
-                    <a
-                      key={c.key}
-                      href={c.href!}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="group flex gap-4 items-center bg-[#f0fdf4] border-2 border-[#86efac] rounded-[18px] p-5 shadow-[0_2px_12px_rgba(37,211,102,0.10)] hover:shadow-[0_8px_28px_rgba(37,211,102,0.22)] hover:-translate-y-0.5 transition-all no-underline cursor-pointer"
-                    >
+                    <a key={c.key} href={c.href!} target="_blank" rel="noopener noreferrer"
+                      className="group flex gap-4 items-center bg-[#f0fdf4] border-2 border-[#86efac] rounded-[18px] p-5 shadow-[0_2px_12px_rgba(37,211,102,0.10)] hover:shadow-[0_8px_28px_rgba(37,211,102,0.22)] hover:-translate-y-0.5 transition-all no-underline cursor-pointer">
                       {inner}
                     </a>
                   );
                 }
 
-                // Regular card — plain div (or anchor if href)
                 const Tag = c.href ? 'a' : 'div';
                 return (
-                  <Tag
-                    key={c.key}
-                    {...(c.href ? { href: c.href } : {})}
-                    className="group bg-white border border-sky-mid/15 rounded-[18px] p-5 shadow-[0_2px_12px_rgba(30,80,120,0.06)] flex gap-4 items-start hover:shadow-[0_8px_28px_rgba(30,80,120,0.12)] hover:-translate-y-0.5 transition-all no-underline"
-                  >
+                  <Tag key={c.key} {...(c.href ? { href: c.href } : {})}
+                    className="group bg-white border border-sky-mid/15 rounded-[18px] p-5 shadow-[0_2px_12px_rgba(30,80,120,0.06)] flex gap-4 items-start hover:shadow-[0_8px_28px_rgba(30,80,120,0.12)] hover:-translate-y-0.5 transition-all no-underline">
                     {inner}
                   </Tag>
                 );
@@ -342,12 +406,8 @@ export default function ContactPage() {
                   </svg>
                 </div>
                 <p className="text-[0.82rem] text-sky-dark font-semibold relative z-10">Thamel, Kathmandu</p>
-                <a
-                  href="https://maps.google.com/?q=Thamel+Kathmandu"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="relative z-10 bg-sky-accent text-white px-5 py-2 rounded-full text-[0.78rem] font-medium hover:bg-sky-dark transition-colors no-underline shadow-[0_4px_14px_rgba(46,134,193,0.30)] flex items-center gap-1.5"
-                >
+                <a href="https://maps.google.com/?q=Thamel+Kathmandu" target="_blank" rel="noopener noreferrer"
+                  className="relative z-10 bg-sky-accent text-white px-5 py-2 rounded-full text-[0.78rem] font-medium hover:bg-sky-dark transition-colors no-underline shadow-[0_4px_14px_rgba(46,134,193,0.30)] flex items-center gap-1.5">
                   Open in Maps
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>

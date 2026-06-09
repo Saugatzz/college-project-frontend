@@ -1,7 +1,34 @@
-import Sidebar from "@/components/sidebar/Sidebar";
+'use client';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Sidebar from '@/components/sidebar/Sidebar';
+import { getToken } from '@/lib/auth/tokenStore';
 
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+  const [verified, setVerified] = useState(false);
 
-export default function DashboardLayout({ children }) {
+  useEffect(() => {
+    const token = getToken();
+    if (!token) {
+      router.replace('/auth/login');
+    } else {
+      setVerified(true);
+    }
+  }, [router]);
+
+  // Prevent flash of dashboard content before redirect
+  if (!verified) {
+    return (
+      <div className="min-h-screen bg-[#f7f8fc] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 rounded-full border-2 border-[#2E86C1] border-t-transparent animate-spin" />
+          <p className="text-[0.75rem] text-gray-400 tracking-wide">Verifying session…</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar />

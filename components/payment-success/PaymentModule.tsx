@@ -332,7 +332,6 @@ export default function PaymentModule() {
 
         </div>
       </main>
-      <Footer />
     </>
   );
 }
