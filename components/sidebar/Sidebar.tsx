@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import SidebarItem from "./SidebarItem";
 import SidebarGroup from "./SidebarGroup";
 import api from "@/lib/api/api";
+import { clearAuth, getUser, AuthUser } from "@/lib/auth/tokenStore";
 
 interface ContactMessage { id: number; read: boolean; }
 interface Booking { id: number; }
@@ -12,9 +13,17 @@ interface Tour { id: number; }
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const [unreadCount, setUnreadCount]   = useState(0);
+  const router   = useRouter();
+
+  const [user,         setUser]         = useState<AuthUser | null>(null);
+  const [unreadCount,  setUnreadCount]  = useState(0);
   const [bookingCount, setBookingCount] = useState(0);
-  const [tourCount, setTourCount]       = useState(0);
+  const [tourCount,    setTourCount]    = useState(0);
+
+  useEffect(() => {
+    // Runs only after hydration — no more "?"
+    setUser(getUser());
+  }, []);
 
   useEffect(() => {
     api.get<ContactMessage[]>('/contacts')
@@ -29,6 +38,23 @@ export default function Sidebar() {
       .then(({ data }) => setTourCount(data.length))
       .catch(() => {});
   }, [pathname]);
+
+  function handleLogout() {
+    clearAuth();
+    router.push('/auth/login');
+  }
+
+  function getInitials(user: AuthUser): string {
+    if (user.name) {
+      return user.name
+        .split(' ')
+        .map(w => w[0])
+        .slice(0, 2)
+        .join('')
+        .toUpperCase();
+    }
+    return user.email[0].toUpperCase();
+  }
 
   const navGroups = [
     {
@@ -52,7 +78,7 @@ export default function Sidebar() {
         { href: "/dashboard/customers", icon: "users",          label: "Customers" },
         {
           href: "/dashboard/messages",
-          icon: "mail",
+          icon: "message-square",
           label: "Messages",
           badge: unreadCount > 0 ? String(unreadCount) : undefined,
           badgeVariant: "blue" as const,
@@ -76,8 +102,6 @@ export default function Sidebar() {
 
   return (
     <aside className="w-[230px] min-w-[230px] bg-gray-300 border-r border-gray-100 shadow-[2px_0_12px_0_rgba(0,0,0,0.04)] flex flex-col h-full">
-      {/* Brand */}
-      
 
       {/* Nav */}
       <nav className="flex-1 py-3 overflow-y-auto">
@@ -102,20 +126,43 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      {/* User footer */}
-      <div className="px-3 py-3 border-t border-gray-100">
-        <div className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors">
-          <div className="w-8 h-8 rounded-full bg-[#EAF3DE] flex items-center justify-center text-xs font-medium text-[#3B6D11]">
-            RK
+      {/* User footer — sits above the bottom edge with clear padding */}
+      <div className="shrink-0 px-3 pt-3 pb-4 border-t border-gray-200 bg-gray-300">
+
+        {/* User info row */}
+        <div className="flex items-center gap-3 px-2 py-2 rounded-xl">
+          <div className="w-9 h-9 shrink-0 rounded-full bg-[#EAF3DE] flex items-center justify-center text-xs font-semibold text-[#3B6D11]">
+            {user ? getInitials(user) : (
+              <span className="w-4 h-4 rounded-full bg-gray-200 animate-pulse block" />
+            )}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-gray-800 truncate">Raj Kumar</p>
-            <p className="text-xs text-gray-400">Administrator</p>
+            <p className="text-sm font-medium text-gray-800 truncate leading-tight">
+              {user?.name ?? <span className="w-20 h-3 bg-gray-200 rounded animate-pulse block" />}
+            </p>
+            <p className="text-xs text-gray-500 truncate leading-tight mt-0.5">
+              {user?.email ?? ''}
+            </p>
           </div>
-          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 5v.01M12 12v.01M12 19v.01" />
-          </svg>
         </div>
+
+        {/* Divider */}
+        <div className="mx-2 my-1 border-t border-gray-200" />
+
+        {/* Logout */}
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-2.5 px-2 py-2 rounded-xl text-gray-500 hover:bg-red-50 hover:text-red-500 transition-colors group"
+        >
+          <svg
+            className="w-4 h-4 shrink-0 text-gray-400 group-hover:text-red-400 transition-colors"
+            fill="none" stroke="currentColor" viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1" />
+          </svg>
+          <span className="text-sm">Sign out</span>
+        </button>
       </div>
     </aside>
   );

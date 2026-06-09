@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 
+const WHATSAPP_URL = 'https://wa.me/9779845439816?text=Hi%2C%20I%27d%20like%20to%20plan%20a%20trip%20to%20Nepal!';
+
 export default function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -24,7 +26,14 @@ export default function Header() {
         <a href="#" className="text-sm font-normal text-stone tracking-wide no-underline hover:text-sky-accent transition-colors">Destinations</a>
         <a href="#" className="text-sm font-normal text-stone tracking-wide no-underline hover:text-sky-accent transition-colors">Trek Types</a>
         <a href="/about" className="text-sm font-normal text-stone tracking-wide no-underline hover:text-sky-accent transition-colors">About</a>
-        <a href="#" className="bg-sky-accent text-white px-5 py-2 rounded-full text-sm font-medium no-underline hover:bg-sky-dark transition-all hover:-translate-y-px">Plan My Trip</a>
+        <a
+          href={WHATSAPP_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="bg-sky-accent text-white px-5 py-2 rounded-full text-sm font-medium no-underline hover:bg-sky-dark transition-all hover:-translate-y-px"
+        >
+          Plan My Trip
+        </a>
       </nav>
 
       {/* Mobile hamburger */}
@@ -44,7 +53,14 @@ export default function Header() {
           <a href="#" className="text-sm font-normal text-stone tracking-wide hover:text-sky-accent transition-colors">Destinations</a>
           <a href="#" className="text-sm font-normal text-stone tracking-wide hover:text-sky-accent transition-colors">Trek Types</a>
           <a href="#" className="text-sm font-normal text-stone tracking-wide hover:text-sky-accent transition-colors">About</a>
-          <a href="#" className="bg-sky-accent text-white px-5 py-2 rounded-full text-sm font-medium text-center hover:bg-sky-dark transition-all">Plan My Trip</a>
+          <a
+            href={WHATSAPP_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="bg-sky-accent text-white px-5 py-2 rounded-full text-sm font-medium text-center hover:bg-sky-dark transition-all"
+          >
+            Plan My Trip
+          </a>
         </div>
       )}
     </header>

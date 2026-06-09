@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import {
-  Badge, Group, Text, Box, Loader, Center, ActionIcon, Tooltip, rem,
+  Group, Text, Box, Loader, Center, ActionIcon, Tooltip, rem,
   Drawer, Stack, Divider, Select, Button, ThemeIcon, Paper, Notification,
 } from "@mantine/core";
 import {
@@ -13,7 +13,6 @@ import { ColumnDef } from "@tanstack/react-table";
 import api from "@/lib/api/api";
 import MantineTable from "@/components/common/MantineTable";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
 type BookingStatus = "pending" | "confirmed" | "cancelled";
 type PaymentMethod = "Khalti" | "eSewa" | "Card";
 
@@ -53,7 +52,6 @@ interface Booking {
   updatedAt: string;
 }
 
-// ── Config ────────────────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<BookingStatus, { color: string; label: string; bg: string; dot: string }> = {
   confirmed: { color: "teal",   label: "Confirmed", bg: "#f0fdf4", dot: "#10b981" },
   pending:   { color: "orange", label: "Pending",   bg: "#fffbeb", dot: "#f59e0b" },
@@ -64,7 +62,6 @@ const PAY_ICON: Record<PaymentMethod, string> = {
   Khalti: "💜", eSewa: "💚", Card: "💳",
 };
 
-// ── Detail Field ──────────────────────────────────────────────────────────────
 function DetailField({ icon, label, value }: { icon: React.ReactNode; label: string; value: React.ReactNode }) {
   return (
     <Group gap={12} align="flex-start" wrap="nowrap">
@@ -88,7 +85,6 @@ function DetailField({ icon, label, value }: { icon: React.ReactNode; label: str
   );
 }
 
-// ── Booking Detail Drawer ─────────────────────────────────────────────────────
 function BookingDrawer({ booking, opened, onClose, onStatusChange }: {
   booking: Booking | null;
   opened: boolean;
@@ -136,7 +132,6 @@ function BookingDrawer({ booking, opened, onClose, onStatusChange }: {
         content: { borderLeft: "1px solid #e8f0f8" },
       }}
     >
-      {/* Header */}
       <Box style={{
         background: "linear-gradient(135deg, #0f4c81 0%, #1a6ea8 50%, #2e86c1 100%)",
         padding: `${rem(24)} ${rem(28)}`, position: "relative", flexShrink: 0,
@@ -174,7 +169,6 @@ function BookingDrawer({ booking, opened, onClose, onStatusChange }: {
         </Group>
       </Box>
 
-      {/* Body */}
       <Box style={{ flex: 1, overflowY: "auto", padding: `${rem(24)} ${rem(28)}` }}>
         {booking.tour?.heroImage && (
           <Box style={{ height: rem(110), borderRadius: rem(14), overflow: "hidden", position: "relative", marginBottom: rem(20) }}>
@@ -219,18 +213,18 @@ function BookingDrawer({ booking, opened, onClose, onStatusChange }: {
             <Divider color="#eef2f7" />
             <Group justify="space-between">
               <Text fz={12} c="dimmed">Tour price</Text>
-              <Text fz={12} fw={500} c="dark.6">${booking.tourPrice.toLocaleString()}</Text>
+              <Text fz={12} fw={500} c="dark.6">${Number(booking.tourPrice).toLocaleString()}</Text>
             </Group>
-            {booking.addonsTotal > 0 && (
+            {Number(booking.addonsTotal) > 0 && (
               <Group justify="space-between">
                 <Text fz={12} c="dimmed">Add-ons</Text>
-                <Text fz={12} fw={500} c="blue.6">+${booking.addonsTotal.toLocaleString()}</Text>
+                <Text fz={12} fw={500} c="blue.6">+${Number(booking.addonsTotal).toLocaleString()}</Text>
               </Group>
             )}
             <Group justify="space-between" pt={4} style={{ borderTop: "1.5px solid #e8f0f8" }}>
               <Text fz={13} fw={600} c="dark.7">Total</Text>
               <Text fz={18} fw={700} style={{ background: "linear-gradient(135deg, #2e86c1, #0f4c81)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-                ${booking.totalAmount.toLocaleString()}
+                ${Number(booking.totalAmount).toLocaleString()}
               </Text>
             </Group>
             {receiptUrl && (
@@ -265,7 +259,7 @@ function BookingDrawer({ booking, opened, onClose, onStatusChange }: {
               {booking.selectedAddons.map((addon, idx) => (
                 <Group key={addon.id ?? idx} justify="space-between" wrap="nowrap">
                   <Group gap={8}><IconPackage size={13} color="#94a3b8" /><Text fz={12} c="dark.6">{addon.name}</Text></Group>
-                  <Text fz={12} fw={600} c="blue.6">${addon.price}</Text>
+                  <Text fz={12} fw={600} c="blue.6">${Number(addon.price).toLocaleString()}</Text>
                 </Group>
               ))}
             </Stack>
@@ -288,7 +282,6 @@ function BookingDrawer({ booking, opened, onClose, onStatusChange }: {
         </Text>
       </Box>
 
-      {/* Footer */}
       <Box style={{ padding: `${rem(16)} ${rem(28)}`, borderTop: "1px solid #eef2f7", background: "white", flexShrink: 0 }}>
         {saved && (
           <Notification icon={<IconCheck size={14} />} color="teal" title="Status updated" mb={10} withCloseButton={false} style={{ padding: `${rem(8)} ${rem(12)}` }}>
@@ -325,13 +318,12 @@ function BookingDrawer({ booking, opened, onClose, onStatusChange }: {
   );
 }
 
-// ── Main Component ────────────────────────────────────────────────────────────
 export default function BookingTable() {
-  const [bookings,    setBookings]   = useState<Booking[]>([]);
-  const [loading,     setLoading]    = useState(true);
-  const [error,       setError]      = useState("");
-  const [selected,    setSelected]   = useState<Booking | null>(null);
-  const [drawerOpen,  setDrawerOpen] = useState(false);
+  const [bookings,   setBookings]  = useState<Booking[]>([]);
+  const [loading,    setLoading]   = useState(true);
+  const [error,      setError]     = useState("");
+  const [selected,   setSelected]  = useState<Booking | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const fetchBookings = async () => {
     setLoading(true);
@@ -360,7 +352,7 @@ export default function BookingTable() {
 
   const pendingCount   = bookings.filter(b => b.status === "pending").length;
   const confirmedCount = bookings.filter(b => b.status === "confirmed").length;
-  const totalRevenue   = bookings.reduce((s, b) => s + b.totalAmount, 0);
+  const totalRevenue   = bookings.reduce((s, b) => s + Number(b.totalAmount), 0);
 
   const columns: ColumnDef<Booking, any>[] = [
     {
@@ -426,8 +418,8 @@ export default function BookingTable() {
         const b = row.original;
         return (
           <>
-            <Text fz={13} fw={600} c="dark.7">${b.totalAmount.toLocaleString()}</Text>
-            {b.addonsTotal > 0 && <Text fz={11} c="blue.5">+${b.addonsTotal} add-ons</Text>}
+            <Text fz={13} fw={600} c="dark.7">${Number(b.totalAmount).toLocaleString()}</Text>
+            {Number(b.addonsTotal) > 0 && <Text fz={11} c="blue.5">+${Number(b.addonsTotal).toLocaleString()} add-ons</Text>}
           </>
         );
       },
@@ -525,13 +517,12 @@ export default function BookingTable() {
 
   return (
     <>
-      {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         {[
-          { label: "Total Bookings", value: bookings.length,              color: "text-[#1a1a2e]" },
-          { label: "Confirmed",      value: confirmedCount,               color: "text-teal-600"  },
-          { label: "Pending",        value: pendingCount,                 color: "text-amber-500" },
-          { label: "Revenue",        value: `$${totalRevenue.toLocaleString()}`, color: "text-[#2E86C1]" },
+          { label: "Total Bookings", value: bookings.length,                        color: "text-[#1a1a2e]" },
+          { label: "Confirmed",      value: confirmedCount,                         color: "text-teal-600"  },
+          { label: "Pending",        value: pendingCount,                           color: "text-amber-500" },
+          { label: "Revenue",        value: `$${totalRevenue.toLocaleString()}`,    color: "text-[#2E86C1]" },
         ].map(s => (
           <div key={s.label} className="bg-white border border-gray-100 rounded-[14px] px-4 py-3 shadow-[0_2px_8px_rgba(30,80,120,0.05)]">
             <div className={`font-playfair text-[1.6rem] font-light leading-none ${s.color}`}>{s.value}</div>
@@ -540,7 +531,6 @@ export default function BookingTable() {
         ))}
       </div>
 
-      {/* Table card */}
       <div className="bg-white border border-gray-100 rounded-[18px] shadow-[0_4px_24px_rgba(30,80,120,0.07)] overflow-hidden">
         <div className="h-1 w-full bg-gradient-to-r from-[#0f4c81] via-[#2E86C1] to-[#1a6ea8]" />
         <MantineTable<Booking>
