@@ -12,7 +12,7 @@ export default function TourCard({ tour }: { tour: Tour }) {
   return (
     <article className="flex flex-col">
       <Link
-        href={`/tour/${tour.id}`}
+        href={`/tour/${tour.slug}`}
         className="bg-white rounded-[18px] border border-sky-mid/15 overflow-hidden flex flex-col flex-1 shadow-[0_4px_24px_rgba(30,80,120,0.13)] no-underline text-inherit transition-all duration-300 hover:-translate-y-1.5 hover:shadow-[0_16px_48px_rgba(30,80,120,0.20)]"
       >
         <div className="h-[224px] relative overflow-hidden bg-sky-light">

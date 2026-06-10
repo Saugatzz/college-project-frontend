@@ -1,14 +1,13 @@
-import { notFound }          from 'next/navigation';
-import { packageToTour }     from '@/lib/adapters/packageToTour';
-import { Package } from '@/components/dashboard/TourTable';
-import TourDetailPage from '@/components/pages/TourDetailPage';
-
+import { notFound }      from 'next/navigation';
+import { packageToTour } from '@/lib/adapters/packageToTour';
+import { Package }       from '@/components/dashboard/TourTable';
+import TourDetailPage    from '@/components/pages/TourDetailPage';
 
 const BASE = process.env.API_URL ?? 'http://localhost:4000';
 
-async function fetchPackage(id: number): Promise<Package | null> {
+async function fetchBySlug(slug: string): Promise<Package | null> {
   try {
-    const res = await fetch(`${BASE}/packages/${id}`, {
+    const res = await fetch(`${BASE}/packages/slug/${slug}`, {
       next: { revalidate: 60 },
     });
     if (!res.ok) return null;
@@ -20,9 +19,7 @@ async function fetchPackage(id: number): Promise<Package | null> {
 
 async function fetchPackages(): Promise<Package[]> {
   try {
-    const res = await fetch(`${BASE}/packages`, {
-      next: { revalidate: 60 },
-    });
+    const res = await fetch(`${BASE}/packages`, { next: { revalidate: 60 } });
     if (!res.ok) return [];
     return res.json();
   } catch {
@@ -33,14 +30,13 @@ async function fetchPackages(): Promise<Package[]> {
 export default async function TourPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ slug: string }>;
 }) {
-  const { id } = await params;
+  const { slug } = await params;
 
-  const pkg = await fetchPackage(Number(id));
+  const [pkg, all] = await Promise.all([fetchBySlug(slug), fetchPackages()]);
   if (!pkg) notFound();
 
-  const all     = await fetchPackages();
   const tour    = packageToTour(pkg);
   const similar = all
     .filter(p => p.id !== pkg.id && p.category === pkg.category)

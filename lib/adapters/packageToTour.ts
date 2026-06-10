@@ -9,10 +9,10 @@ const diffMap: Record<string, 'easy' | 'moderate' | 'hard'> = {
 };
 
 const categoryMap: Record<string, Tour['category']> = {
-  TREKKING:     'trek',
-  CULTURAL:     'culture',
-  ADVENTURE:    'adventure',
-  WILDLIFE:     'adventure',
+  TREKKING:       'trek',
+  CULTURAL:       'culture',
+  ADVENTURE:      'adventure',
+  WILDLIFE:       'adventure',
   'MOST POPULAR': 'trek',
 };
 
@@ -28,6 +28,7 @@ export function packageToTour(pkg: Package): Tour {
 
   return {
     id:          pkg.id,
+    slug:        pkg.slug,
     name:        pkg.title,
     tagline:     pkg.tagline  || pkg.description.slice(0, 80),
     description: pkg.description,
