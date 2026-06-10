@@ -533,16 +533,14 @@ export default function BookingTable() {
 
       <div className="bg-white border border-gray-100 rounded-[18px] shadow-[0_4px_24px_rgba(30,80,120,0.07)] overflow-hidden">
         <div className="h-1 w-full bg-gradient-to-r from-[#0f4c81] via-[#2E86C1] to-[#1a6ea8]" />
-        <MantineTable<Booking>
-          data={bookings}
-          columns={columns}
-          enableGlobalFilter
-          enablePagination
-          renderBottomToolbar
-          onRowClick={handleRowClick}
-          rowStyle={() => ({ cursor: "pointer", transition: "background 0.15s ease" })}
-          rowHoverStyle={{ background: "#f8fbff" }}
-        />
+       <MantineTable<Booking>
+  data={bookings}
+  columns={columns}
+  enableGlobalFilter
+  enablePagination
+  renderBottomToolbar
+  onRowClick={handleRowClick}
+/>
       </div>
 
       <BookingDrawer
