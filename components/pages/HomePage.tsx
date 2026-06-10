@@ -38,7 +38,7 @@ export default function HomePageClient() {   // ← no more tours prop
       <div className="bg-snow pt-4 sm:pt-12 md:pt-10">
         <ToursSection
           filters={filters}
-          tours={tours}            // ← was: filtered={filtered}
+          tours={tours ?? []}            // ← was: filtered={filtered}
           loading={loading}        // ← new
           error={error}            // ← new
           activeFilterCount={activeFilterCount}

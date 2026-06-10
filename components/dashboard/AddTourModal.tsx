@@ -19,22 +19,22 @@ interface Props {
 }
 
 const EMPTY_FIELDS = {
-  title: '', description: '', basePrice: 0, durationDays: 1,
+  name: '', description: '', price: 0, days: 1,
   location: '', difficulty: 'Moderate', category: 'TREKKING',
-  badge: '', tagline: '', heroImage: '', reviewCount: 0, rating: 5,
+  badge: '', tagline: '', image: '', reviewCount: 0, rating: 5,
 };
 
 type FieldErrors = Partial<Record<keyof typeof EMPTY_FIELDS, string>>;
 
 function validateFields(fields: typeof EMPTY_FIELDS): FieldErrors {
   const errors: FieldErrors = {};
-  if (!fields.title.trim())                          errors.title       = 'Tour title is required';
-  if (!fields.description.trim())                    errors.description = 'Description is required';
-  if (!fields.location.trim())                       errors.location    = 'Location is required';
-  if (!fields.difficulty)                            errors.difficulty  = 'Difficulty is required';
-  if (!fields.category)                              errors.category    = 'Category is required';
-  if (!fields.basePrice || fields.basePrice <= 0)    errors.basePrice   = 'Price must be greater than 0';
-  if (!fields.durationDays || fields.durationDays < 1) errors.durationDays = 'Duration must be at least 1 day';
+  if (!fields.name.trim())                errors.name        = 'Tour name is required';
+  if (!fields.description.trim())         errors.description = 'Description is required';
+  if (!fields.location.trim())            errors.location    = 'Location is required';
+  if (!fields.difficulty)                 errors.difficulty  = 'Difficulty is required';
+  if (!fields.category)                   errors.category    = 'Category is required';
+  if (!fields.price || fields.price <= 0) errors.price       = 'Price must be greater than 0';
+  if (!fields.days  || fields.days  < 1)  errors.days        = 'Duration must be at least 1 day';
   return errors;
 }
 
@@ -58,18 +58,18 @@ export default function AddTourModal({ opened, onClose, onSaved, editData }: Pro
 
     if (editData) {
       setFields({
-        title:        editData.title,
-        description:  editData.description,
-        basePrice:    Number(editData.basePrice),
-        durationDays: editData.durationDays,
-        location:     editData.location,
-        difficulty:   editData.difficulty   ?? 'Moderate',
-        category:     editData.category     ?? 'TREKKING',
-        badge:        editData.badge        ?? '',
-        tagline:      editData.tagline      ?? '',
-        heroImage:    editData.heroImage    ?? '',
-        reviewCount:  editData.reviewCount  ?? 0,
-        rating:       Number(editData.rating) ?? 5,
+        name:        editData.name,
+        description: editData.description,
+        price:       Number(editData.price),
+        days:        editData.days,
+        location:    editData.location,
+        difficulty:  editData.difficulty  ?? 'Moderate',
+        category:    editData.category    ?? 'TREKKING',
+        badge:       editData.badge       ?? '',
+        tagline:     editData.tagline     ?? '',
+        image:       editData.image       ?? '',
+        reviewCount: editData.reviewCount ?? 0,
+        rating:      Number(editData.rating) ?? 5,
       });
       setItineraries(editData.itineraries?.map(({ dayNumber, title, description }) => ({ dayNumber, title, description })) ?? []);
       setHighlights(editData.highlights?.map(({ icon, title, desc }) => ({ icon, title, desc })) ?? []);
@@ -95,7 +95,6 @@ export default function AddTourModal({ opened, onClose, onSaved, editData }: Pro
     setErrors(e => ({ ...e, [key]: newErrors[key] }));
   };
 
-  // error only shown after field is touched
   const err = (key: keyof typeof EMPTY_FIELDS) =>
     touched[key] ? errors[key] : undefined;
 
@@ -110,9 +109,9 @@ export default function AddTourModal({ opened, onClose, onSaved, editData }: Pro
   const delHighlight = (i: number) => setHighlights(p => p.filter((_, idx) => idx !== i));
 
   // ── Inclusion helpers ────────────────────────────────────────────────────
-  const addInclusion    = (included: boolean) => setInclusions(p => [...p, { text: '', included }]);
+  const addInclusion     = (included: boolean) => setInclusions(p => [...p, { text: '', included }]);
   const updInclusionText = (i: number, text: string) => setInclusions(p => p.map((x, idx) => idx === i ? { ...x, text } : x));
-  const delInclusion    = (i: number) => setInclusions(p => p.filter((_, idx) => idx !== i));
+  const delInclusion     = (i: number) => setInclusions(p => p.filter((_, idx) => idx !== i));
 
   // ── Addon helpers ────────────────────────────────────────────────────────
   const addAddon = () => setAddons(p => [...p, { name: '', desc: '', price: 0 }]);
@@ -126,10 +125,9 @@ export default function AddTourModal({ opened, onClose, onSaved, editData }: Pro
 
   // ── Submit ───────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
-    // mark all required fields as touched and validate
     const allTouched: Partial<Record<keyof typeof EMPTY_FIELDS, boolean>> = {
-      title: true, description: true, location: true,
-      difficulty: true, category: true, basePrice: true, durationDays: true,
+      name: true, description: true, location: true,
+      difficulty: true, category: true, price: true, days: true,
     };
     setTouched(allTouched);
 
@@ -184,7 +182,7 @@ export default function AddTourModal({ opened, onClose, onSaved, editData }: Pro
       <Tabs defaultValue="basics" styles={{ tab: { fontSize: rem(13) } }}>
         <Tabs.List px="md" pt="xs">
           <Tabs.Tab value="basics">
-            Basics {Object.keys(errors).length > 0 && touched.title ? (
+            Basics {Object.keys(errors).length > 0 && touched.name ? (
               <Text span fz={10} c="red" ml={4}>●</Text>
             ) : null}
           </Tabs.Tab>
@@ -199,10 +197,10 @@ export default function AddTourModal({ opened, onClose, onSaved, editData }: Pro
         <Tabs.Panel value="basics" p="md">
           <div className="flex flex-col gap-3">
             <TextInput
-              label="Tour Title *" value={fields.title} styles={inputSx}
-              error={err('title')}
-              onChange={e => set('title')(e.target.value)}
-              onBlur={() => setTouched(t => ({ ...t, title: true }))}
+              label="Tour Name *" value={fields.name} styles={inputSx}
+              error={err('name')}
+              onChange={e => set('name')(e.target.value)}
+              onBlur={() => setTouched(t => ({ ...t, name: true }))}
             />
             <TextInput
               label="Tagline" value={fields.tagline} styles={inputSx}
@@ -217,16 +215,16 @@ export default function AddTourModal({ opened, onClose, onSaved, editData }: Pro
 
             <div className="grid grid-cols-2 gap-3">
               <NumberInput
-                label="Base Price (USD) *" value={fields.basePrice}
-                onChange={v => set('basePrice')(Number(v))} min={0} styles={inputSx}
-                error={err('basePrice')}
-                onBlur={() => setTouched(t => ({ ...t, basePrice: true }))}
+                label="Price (USD) *" value={fields.price}
+                onChange={v => set('price')(Number(v))} min={0} styles={inputSx}
+                error={err('price')}
+                onBlur={() => setTouched(t => ({ ...t, price: true }))}
               />
               <NumberInput
-                label="Duration (days) *" value={fields.durationDays}
-                onChange={v => set('durationDays')(Number(v))} min={1} styles={inputSx}
-                error={err('durationDays')}
-                onBlur={() => setTouched(t => ({ ...t, durationDays: true }))}
+                label="Duration (days) *" value={fields.days}
+                onChange={v => set('days')(Number(v))} min={1} styles={inputSx}
+                error={err('days')}
+                onBlur={() => setTouched(t => ({ ...t, days: true }))}
               />
             </div>
 
@@ -261,8 +259,8 @@ export default function AddTourModal({ opened, onClose, onSaved, editData }: Pro
             </div>
 
             <TextInput
-              label="Hero Image URL" value={fields.heroImage} styles={inputSx}
-              onChange={e => set('heroImage')(e.target.value)}
+              label="Image URL" value={fields.image} styles={inputSx}
+              onChange={e => set('image')(e.target.value)}
             />
 
             <div className="grid grid-cols-2 gap-3">
@@ -285,12 +283,14 @@ export default function AddTourModal({ opened, onClose, onSaved, editData }: Pro
             {itineraries.map((itin, i) => (
               <div key={i} className="border border-gray-100 rounded-xl p-4">
                 <div className="flex items-center justify-between mb-3">
-                  <Text fz={11} fw={600} c="gray.5" tt="uppercase" ls="0.08em">Day {itin.dayNumber}</Text>
+                  <Text fz={11} fw={600} c="gray.5" tt="uppercase" style={{ letterSpacing: '0.08em' }}>
+                    Day {itin.dayNumber}
+                  </Text>
                   <DeleteBtn onClick={() => delItin(i)} />
                 </div>
                 <div className="grid grid-cols-[80px_1fr] gap-2 mb-2">
                   <NumberInput label="Day #" value={itin.dayNumber} min={1} styles={inputSx} onChange={v => updItin(i, 'dayNumber', Number(v))} />
-                  <TextInput   label="Title" value={itin.title} styles={inputSx} onChange={e => updItin(i, 'title', e.target.value)} />
+                  <TextInput   label="Title" value={itin.title}     styles={inputSx} onChange={e => updItin(i, 'title', e.target.value)} />
                 </div>
                 <Textarea label="Description" value={itin.description} minRows={2} styles={inputSx} onChange={e => updItin(i, 'description', e.target.value)} />
               </div>
@@ -305,7 +305,9 @@ export default function AddTourModal({ opened, onClose, onSaved, editData }: Pro
             {highlights.map((h, i) => (
               <div key={i} className="border border-gray-100 rounded-xl p-4">
                 <div className="flex items-center justify-between mb-3">
-                  <Text fz={11} fw={600} c="gray.5" tt="uppercase" ls="0.08em">Highlight {i + 1}</Text>
+                  <Text fz={11} fw={600} c="gray.5" tt="uppercase" style={{ letterSpacing: '0.08em' }}>
+                    Highlight {i + 1}
+                  </Text>
                   <DeleteBtn onClick={() => delHighlight(i)} />
                 </div>
                 <div className="grid grid-cols-[64px_1fr] gap-2 mb-2">
@@ -323,7 +325,7 @@ export default function AddTourModal({ opened, onClose, onSaved, editData }: Pro
         <Tabs.Panel value="inclusions" p="md">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <div>
-              <Text fz={12} fw={600} c="teal.7" tt="uppercase" ls="0.1em" mb={10}>✓ Included</Text>
+              <Text fz={12} fw={600} c="teal.7" tt="uppercase" style={{ letterSpacing: '0.1em', marginBottom: rem(10) }}>✓ Included</Text>
               <div className="flex flex-col gap-2">
                 {included.map(({ inc, i }) => (
                   <div key={i} className="flex items-center gap-2">
@@ -335,7 +337,7 @@ export default function AddTourModal({ opened, onClose, onSaved, editData }: Pro
               </div>
             </div>
             <div>
-              <Text fz={12} fw={600} c="red.6" tt="uppercase" ls="0.1em" mb={10}>✗ Not Included</Text>
+              <Text fz={12} fw={600} c="red.6" tt="uppercase" style={{ letterSpacing: '0.1em', marginBottom: rem(10) }}>✗ Not Included</Text>
               <div className="flex flex-col gap-2">
                 {excluded.map(({ inc, i }) => (
                   <div key={i} className="flex items-center gap-2">
@@ -355,11 +357,13 @@ export default function AddTourModal({ opened, onClose, onSaved, editData }: Pro
             {addons.map((a, i) => (
               <div key={i} className="border border-gray-100 rounded-xl p-4">
                 <div className="flex items-center justify-between mb-3">
-                  <Text fz={11} fw={600} c="gray.5" tt="uppercase" ls="0.08em">Add-on {i + 1}</Text>
+                  <Text fz={11} fw={600} c="gray.5" tt="uppercase" style={{ letterSpacing: '0.08em' }}>
+                    Add-on {i + 1}
+                  </Text>
                   <DeleteBtn onClick={() => delAddon(i)} />
                 </div>
                 <div className="grid grid-cols-[1fr_100px] gap-2 mb-2">
-                  <TextInput  label="Name"      value={a.name}  styles={inputSx} onChange={e => updAddon(i, 'name',  e.target.value)} />
+                  <TextInput   label="Name"     value={a.name}  styles={inputSx} onChange={e => updAddon(i, 'name',  e.target.value)} />
                   <NumberInput label="Price ($)" value={a.price} min={0} styles={inputSx} onChange={v => updAddon(i, 'price', Number(v))} />
                 </div>
                 <Textarea label="Description" value={a.desc} minRows={2} styles={inputSx} onChange={e => updAddon(i, 'desc', e.target.value)} />

@@ -14,12 +14,28 @@ export interface TourAddon      { id?: number; name: string; desc: string; price
 export interface TourImage      { id?: number; src: string; alt: string; sortOrder?: number }
 
 export interface Package {
-  id: number; title: string; description: string; basePrice: number;
-  durationDays: number; location: string; difficulty: string; category: string;
-  rating: number; heroImage: string; badge: string; tagline: string;
-  reviewCount: number; isActive: boolean; createdAt: string;
-  itineraries: TourItinerary[]; highlights: TourHighlight[];
-  inclusions: TourInclusion[]; addons: TourAddon[]; images: TourImage[];
+  id: number;
+  name: string;
+  description: string;
+  price: number;
+  days: number;
+  location: string;
+  difficulty: string;
+  category: string;
+  rating: number;
+  image: string;
+  badge: string;
+  tagline: string;
+  reviewCount: number;
+  isActive: boolean;
+  createdAt: string;
+  slug: string;          // ← add this
+  itineraries: TourItinerary[];
+  highlights: TourHighlight[];
+  inclusions: TourInclusion[];
+  addons: TourAddon[];
+  images: TourImage[];
+  tags?: string[];
 }
 
 async function apiFetchAll(): Promise<Package[]> {
@@ -101,7 +117,7 @@ export default function TourTable() {
       header: 'Tour Name',
       cell: ({ row }) => (
         <div>
-          <Text fz={13} fw={500} c="dark.7">{row.original.title}</Text>
+          <Text fz={13} fw={500} c="dark.7">{row.original.name}</Text>
           <Text fz={11} c="dimmed">{row.original.location}</Text>
         </div>
       ),

@@ -1,9 +1,13 @@
 import LoginModule from '@/components/login/LoginModule'
-import React from 'react'
+import React, { Suspense } from 'react'
 
 const page = () => {
   return (
-    <div><LoginModule /></div>
+    <div>
+      <Suspense fallback={<div>Loading...</div>}>
+        <LoginModule />
+      </Suspense>
+    </div>
   )
 }
 

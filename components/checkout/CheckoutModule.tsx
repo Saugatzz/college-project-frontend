@@ -65,20 +65,29 @@ export default function CheckoutClient() {
     api.get(`/packages/${tourId}`)
       .then(({ data: d }) => {
         const mapped: Tour = {
-          id: d.id, name: d.title, tagline: d.tagline ?? "", image: d.heroImage ?? "",
-          heroImage: d.heroImage ?? "", badge: d.badge ?? "",
-          category: d.category?.toLowerCase() ?? "trek",
-          difficulty: d.difficulty?.toLowerCase() ?? "moderate",
-          duration: `${d.durationDays} Days`, days: d.durationDays,
-          price: parseFloat(d.basePrice) || 0, rating: parseFloat(d.rating) || 0,
-          reviewCount: d.reviewCount ?? 0, tags: [], description: d.description ?? "",
-          gallery: (d.images ?? []).map((img: any) => ({ src: img.src, alt: img.alt })),
-          itinerary: (d.itineraries ?? []).map((it: any) => ({ title: it.title, desc: it.description })),
-          highlights: (d.highlights ?? []).map((h: any) => ({ icon: h.icon, title: h.title, desc: h.desc })),
-          includes: (d.inclusions ?? []).filter((i: any) => i.included).map((i: any) => i.text),
-          excludes: (d.inclusions ?? []).filter((i: any) => !i.included).map((i: any) => i.text),
-          addons: (d.addons ?? []).map((a: any) => ({ name: a.name, desc: a.desc, price: parseFloat(a.price) || 0 })),
-        };
+  id:          d.id,
+  slug:        d.slug ?? "",
+  name:        d.name,
+  tagline:     d.tagline      ?? "",
+  image:       d.image        ?? "",
+  heroImage:   d.image        ?? "",   // entity uses `image`, not `heroImage`
+  badge:       d.badge        ?? "",
+  category:    d.category?.toLowerCase()  ?? "trek",
+  difficulty:  d.difficulty?.toLowerCase() ?? "moderate",
+  duration:    `${d.days} Days`,
+  days:        d.days,
+  price:       parseFloat(d.price)  || 0,
+  rating:      parseFloat(d.rating) || 0,
+  reviewCount: d.reviewCount  ?? 0,
+  tags:        [],
+  description: d.description  ?? "",
+  gallery:     (d.images      ?? []).map((img: any) => ({ src: img.src, alt: img.alt })),
+  itinerary:   (d.itineraries ?? []).map((it: any)  => ({ title: it.title, desc: it.description })),
+  highlights:  (d.highlights  ?? []).map((h: any)   => ({ icon: h.icon, title: h.title, desc: h.desc })),
+  includes:    (d.inclusions  ?? []).filter((i: any) =>  i.included).map((i: any) => i.text),
+  excludes:    (d.inclusions  ?? []).filter((i: any) => !i.included).map((i: any) => i.text),
+  addons:      (d.addons      ?? []).map((a: any)   => ({ name: a.name, desc: a.desc, price: parseFloat(a.price) || 0 })),
+};
         setTour(mapped);
       })
       .catch(() => setTour(null))
