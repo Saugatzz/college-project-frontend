@@ -35,6 +35,7 @@ export interface Tour {
   days: number;
   price: number;
   rating: number;
+  slug:string;
   reviewCount: number;
   tags: string[];
   heroImage: string;
