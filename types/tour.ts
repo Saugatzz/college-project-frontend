@@ -46,4 +46,5 @@ export interface Tour {
   includes: string[];
   excludes: string[];
   addons: Addon[];
+  slug: string;
 }

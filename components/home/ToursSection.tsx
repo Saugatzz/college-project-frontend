@@ -15,14 +15,24 @@ const CATEGORIES: { label: string; value: CategoryOption }[] = [
 ];
 
 interface Props {
-  filters: FilterState;
-  filtered: Tour[];
+  filters:           FilterState;
+  tours:             Tour[];        // ← was: filtered
+  loading:           boolean;       // ← new
+  error:             string | null; // ← new
   activeFilterCount: number;
-  onUpdate: (patch: Partial<FilterState>) => void;
-  onClear: () => void;
+  onUpdate:          (patch: Partial<FilterState>) => void;
+  onClear:           () => void;
 }
 
-export default function ToursSection({ filters, filtered, activeFilterCount, onUpdate, onClear }: Props) {
+export default function ToursSection({
+  filters,
+  tours,
+  loading,
+  error,
+  activeFilterCount,
+  onUpdate,
+  onClear,
+}: Props) {
   return (
     <section className="px-4 md:px-8 lg:px-12 pt-12 pb-24 bg-snow" id="tours-section" aria-label="Tour listings">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 md:mb-12 gap-4">
@@ -55,12 +65,39 @@ export default function ToursSection({ filters, filtered, activeFilterCount, onU
           onUpdate={onUpdate}
           onClear={onClear}
         />
+
         <div>
-          {filtered.length === 0 ? (
+          {/* Loading */}
+          {loading && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="h-72 rounded-2xl bg-sky-mid/30 animate-pulse" />
+              ))}
+            </div>
+          )}
+
+          {/* Error */}
+          {!loading && error && (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <p className="text-stone text-sm">Something went wrong loading tours.</p>
+              <button
+                onClick={onClear}
+                className="mt-4 text-sky-accent text-sm underline underline-offset-2"
+              >
+                Reset filters and try again
+              </button>
+            </div>
+          )}
+
+          {/* No results */}
+          {!loading && !error && tours.length === 0 && (
             <NoResults onClear={onClear} />
-          ) : (
+          )}
+
+          {/* Results */}
+          {!loading && !error && tours.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6" aria-live="polite">
-              {filtered.map(tour => <TourCard key={tour.id} tour={tour} />)}
+              {tours.map(tour => <TourCard key={tour.id} tour={tour} />)}
             </div>
           )}
         </div>

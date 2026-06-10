@@ -1,16 +1,11 @@
 'use client';
-import type { Tour } from '@/types/tour';
 import { useFilters } from '@/hooks/useFilters';
 import HeroSection    from '@/components/home/HeroSection';
 import SearchSection  from '@/components/home/SearchSection';
 import ToursSection   from '@/components/home/ToursSection';
 
-interface Props {
-  tours: Tour[];
-}
-
-export default function HomePageClient({ tours }: Props) {
-  const { filters, filtered, activeFilterCount, update, clear } = useFilters(tours);
+export default function HomePageClient() {   // ← no more tours prop
+  const { filters, tours, loading, error, activeFilterCount, update, clear } = useFilters();
 
   const scrollToTours = () =>
     document.getElementById('tours-section')?.scrollIntoView({ behavior: 'smooth' });
@@ -43,7 +38,9 @@ export default function HomePageClient({ tours }: Props) {
       <div className="bg-snow pt-4 sm:pt-12 md:pt-10">
         <ToursSection
           filters={filters}
-          filtered={filtered}
+          tours={tours}            // ← was: filtered={filtered}
+          loading={loading}        // ← new
+          error={error}            // ← new
           activeFilterCount={activeFilterCount}
           onUpdate={update}
           onClear={clear}
