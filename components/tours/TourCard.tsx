@@ -1,14 +1,19 @@
 import Link from 'next/link';
 import type { Tour } from '@/types/tour';
 
-const diffMap = {
-  easy:     { cls: 'bg-green-100 text-[#1a8a59]', label: 'Easy'        },
-  moderate: { cls: 'bg-amber-100 text-[#c47a00]', label: 'Moderate'    },
-  hard:     { cls: 'bg-red-100   text-[#b03030]', label: 'Challenging' },
+const diffMap: Record<string, { cls: string; label: string }> = {
+  easy:        { cls: 'bg-green-100 text-[#1a8a59]', label: 'Easy'        },
+  moderate:    { cls: 'bg-amber-100 text-[#c47a00]', label: 'Moderate'    },
+  challenging: { cls: 'bg-red-100   text-[#b03030]', label: 'Challenging' },
+  hard:        { cls: 'bg-red-100   text-[#b03030]', label: 'Challenging' }, // legacy alias
+  extreme:     { cls: 'bg-red-200   text-[#7a1a1a]', label: 'Extreme'     },
 };
 
+const FALLBACK = { cls: 'bg-gray-100 text-gray-600', label: 'Unknown' };
+
 export default function TourCard({ tour }: { tour: Tour }) {
-  const { cls, label } = diffMap[tour.difficulty];
+  const { cls, label } = diffMap[tour.difficulty?.toLowerCase()] ?? FALLBACK;
+
   return (
     <article className="flex flex-col">
       <Link
