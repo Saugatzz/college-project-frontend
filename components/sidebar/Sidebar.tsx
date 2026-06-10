@@ -6,6 +6,7 @@ import SidebarItem from "./SidebarItem";
 import SidebarGroup from "./SidebarGroup";
 import api from "@/lib/api/api";
 import { clearAuth, getUser, AuthUser } from "@/lib/auth/tokenStore";
+import { IconLogout } from "@tabler/icons-react";
 
 interface ContactMessage { id: number; read: boolean; }
 interface Booking { id: number; }
@@ -151,18 +152,16 @@ export default function Sidebar() {
 
         {/* Logout */}
         <button
-          onClick={handleLogout}
-          className="w-full flex items-center gap-2.5 px-2 py-2 rounded-xl text-gray-500 hover:bg-red-50 hover:text-red-500 transition-colors group"
-        >
-          <svg
-            className="w-4 h-4 shrink-0 text-gray-400 group-hover:text-red-400 transition-colors"
-            fill="none" stroke="currentColor" viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1" />
-          </svg>
-          <span className="text-sm">Sign out</span>
-        </button>
+  onClick={handleLogout}
+  className="w-full flex items-center gap-2.5 px-2 py-2 rounded-xl text-gray-500 hover:bg-red-50 hover:text-red-500 transition-colors group"
+>
+  <IconLogout
+    size={16}
+    stroke={1.5}
+    className="shrink-0 text-gray-400 group-hover:text-red-400 transition-colors"
+  />
+  <span className="text-sm">Sign out</span>
+</button>
       </div>
     </aside>
   );
