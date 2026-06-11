@@ -7,7 +7,8 @@ import api from '@/lib/api/api';
 
 interface Package {
   id: number;
-  title: string;
+  name: string;
+  slug: string;
   location: string;
 }
 
@@ -42,7 +43,7 @@ export default function Footer() {
   useEffect(() => {
     api.get<Package[]>('/packages')
       .then(({ data }) => setDestinations(data))
-      .catch(() => {}); // fail silently — footer shouldn't break the page
+      .catch(() => {});
   }, []);
 
   const visibleDestinations = destinations.slice(0, MAX_DESTINATIONS);
@@ -83,13 +84,13 @@ export default function Footer() {
           <div className="flex flex-col items-center md:items-start">
             <h4 className="text-[0.72rem] font-semibold tracking-[0.14em] uppercase text-pebble mb-5">Destinations</h4>
             <ul className="space-y-3 text-center md:text-left">
-              {visibleDestinations.map(({ id, title }) => (
+              {visibleDestinations.map(({ id, name, slug }) => (
                 <li key={id}>
                   <Link
-                    href={`/tour/${id}`}
+                    href={`/tour/${slug}`}
                     className="text-[0.875rem] text-white/55 hover:text-sky-accent transition-colors font-light no-underline"
                   >
-                    {title}
+                    {name}
                   </Link>
                 </li>
               ))}
@@ -103,12 +104,11 @@ export default function Footer() {
                   </Link>
                 </li>
               )}
-              {destinations.length === 0 && (
-                // skeleton placeholders while loading
+              {destinations.length === 0 &&
                 Array.from({ length: 4 }).map((_, i) => (
                   <li key={i} className="h-4 w-32 bg-white/10 rounded animate-pulse" />
                 ))
-              )}
+              }
             </ul>
           </div>
 
