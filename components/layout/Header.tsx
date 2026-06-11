@@ -23,9 +23,9 @@ export default function Header() {
 
       {/* Desktop nav */}
       <nav className="hidden md:flex gap-8 items-center">
-        <a href="#" className="text-sm font-normal text-stone tracking-wide no-underline hover:text-sky-accent transition-colors">Destinations</a>
-        <a href="#" className="text-sm font-normal text-stone tracking-wide no-underline hover:text-sky-accent transition-colors">Trek Types</a>
-        <a href="/about" className="text-sm font-normal text-stone tracking-wide no-underline hover:text-sky-accent transition-colors">About</a>
+        <a href="#" className="text-sm font-normal text-black tracking-wide no-underline hover:text-sky-accent transition-colors">Destinations</a>
+        <a href="#" className="text-sm font-normal text-black tracking-wide no-underline hover:text-sky-accent transition-colors">Trek Types</a>
+        <a href="/about" className="text-sm font-normal text-black tracking-wide no-underline hover:text-sky-accent transition-colors">About</a>
         <a
           href={WHATSAPP_URL}
           target="_blank"

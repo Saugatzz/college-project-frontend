@@ -141,7 +141,7 @@ export default function TourTable() {
       },
     },
     {
-      accessorKey: 'basePrice',
+      accessorKey: 'price',
       header: 'Price',
       cell: ({ getValue }) => (
         <Text fz={13} fw={500} c="dark.6">${Number(getValue<number>()).toLocaleString()}</Text>
