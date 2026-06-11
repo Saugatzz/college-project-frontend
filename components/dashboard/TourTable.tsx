@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { ActionIcon, Badge as MBadge, Text, Button, Switch } from '@mantine/core';
-import { IconEdit, IconTrash, IconPlus } from '@tabler/icons-react';
+import { ActionIcon, Badge as MBadge, Text, Button, Switch, Modal, Group, Box, ThemeIcon, rem, Divider } from '@mantine/core';
+import { IconEdit, IconTrash, IconPlus, IconAlertTriangle } from '@tabler/icons-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import MantineTable from '../common/MantineTable';
 import AddTourModal from './AddTourModal';
@@ -29,7 +29,7 @@ export interface Package {
   reviewCount: number;
   isActive: boolean;
   createdAt: string;
-  slug: string;          // ← add this
+  slug: string;
   itineraries: TourItinerary[];
   highlights: TourHighlight[];
   inclusions: TourInclusion[];
@@ -70,6 +70,8 @@ export default function TourTable() {
   const [editTarget,     setEditTarget]     = useState<Package | null>(null);
   const [togglingId,     setTogglingId]     = useState<number | null>(null);
   const [activeCategory, setActiveCategory] = useState('All');
+  const [deleteTarget,   setDeleteTarget]   = useState<Package | null>(null);
+  const [deleting,       setDeleting]       = useState(false);
 
   useEffect(() => {
     apiFetchAll().then(setData).finally(() => setLoading(false));
@@ -82,10 +84,20 @@ export default function TourTable() {
   const activeCount   = data.filter(p => p.isActive).length;
   const inactiveCount = data.filter(p => !p.isActive).length;
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Delete this tour?')) return;
-    await apiDelete(id);
-    setData(prev => prev.filter(p => p.id !== id));
+  const handleDelete = (id: number) => {
+    setDeleteTarget(data.find(p => p.id === id) ?? null);
+  };
+
+  const doDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await apiDelete(deleteTarget.id);
+      setData(prev => prev.filter(p => p.id !== deleteTarget.id));
+      setDeleteTarget(null);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const handleToggleActive = async (pkg: Package) => {
@@ -181,6 +193,91 @@ export default function TourTable() {
 
   return (
     <>
+      {/* Delete Confirmation Modal */}
+      <Modal
+        opened={!!deleteTarget}
+        onClose={() => !deleting && setDeleteTarget(null)}
+        centered
+        radius="xl"
+        size="sm"
+        padding={0}
+        withCloseButton={false}
+        overlayProps={{ backgroundOpacity: 0.4, blur: 3 }}
+        styles={{
+          content: { overflow: 'hidden', border: '1px solid rgba(220,38,38,0.15)' },
+        }}
+      >
+        {/* Red header band */}
+        <Box style={{ background: 'linear-gradient(135deg, #7f1d1d 0%, #b91c1c 50%, #dc2626 100%)', padding: `${rem(24)} ${rem(28)} ${rem(20)}` }}>
+          <Group gap={12}>
+            <ThemeIcon
+              size={44}
+              radius="xl"
+              style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.2)', flexShrink: 0 }}
+            >
+              <IconAlertTriangle size={21} color="white" />
+            </ThemeIcon>
+            <div>
+              <Text ff="serif" fz={20} fw={400} c="white" lh={1.15}>Delete Tour</Text>
+              <Text fz={12} c="rgba(255,255,255,0.65)" fw={300} mt={2}>This action cannot be undone.</Text>
+            </div>
+          </Group>
+        </Box>
+
+        {/* Body */}
+        <Box p={`${rem(22)} ${rem(28)} ${rem(26)}`}>
+          <Box
+            p="md"
+            mb="lg"
+            style={{
+              background: 'linear-gradient(135deg, #fff5f5, #fee2e2)',
+              borderRadius: rem(12),
+              border: '1px solid rgba(220,38,38,0.12)',
+            }}
+          >
+            <Text fz={13} c="dark.7" fw={500} mb={4} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {deleteTarget?.name}
+            </Text>
+            <Group gap={16}>
+              <Text fz={12} c="dimmed" fw={300}>{deleteTarget?.location}</Text>
+              {deleteTarget?.location && deleteTarget?.days ? <Text fz={12} c="dimmed">·</Text> : null}
+              <Text fz={12} c="dimmed" fw={300}>{deleteTarget?.days} days</Text>
+            </Group>
+          </Box>
+
+          <Text fz={13} c="gray.6" fw={300} lh={1.6} mb="xl">
+            Deleting this tour will permanently remove all its itineraries, highlights, images, and bookings associated with it.
+          </Text>
+
+          <Group gap="sm">
+            <Button
+              flex={1}
+              size="sm"
+              radius="xl"
+              variant="light"
+              color="gray"
+              onClick={() => setDeleteTarget(null)}
+              disabled={deleting}
+              styles={{ root: { border: '1px solid #e5e7eb', color: '#6b7280', height: rem(40), fontSize: rem(13) } }}
+            >
+              Cancel
+            </Button>
+            <Button
+              flex={2}
+              size="sm"
+              radius="xl"
+              color="red"
+              loading={deleting}
+              leftSection={!deleting ? <IconTrash size={14} /> : undefined}
+              onClick={doDelete}
+              style={{ background: 'linear-gradient(135deg, #dc2626, #7f1d1d)', boxShadow: '0 6px 20px rgba(220,38,38,0.3)', height: rem(40), fontSize: rem(13), fontWeight: 500 }}
+            >
+              {deleting ? 'Deleting…' : 'Yes, Delete Tour'}
+            </Button>
+          </Group>
+        </Box>
+      </Modal>
+
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3 mb-6">
         {[
