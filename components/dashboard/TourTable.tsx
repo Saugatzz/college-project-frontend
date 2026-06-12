@@ -5,6 +5,7 @@ import { IconEdit, IconTrash, IconPlus, IconAlertTriangle } from '@tabler/icons-
 import type { ColumnDef } from '@tanstack/react-table';
 import MantineTable from '../common/MantineTable';
 import AddTourModal from './AddTourModal';
+import AppNotification, { useNotification } from '../common/AppNotification';
 import api from '@/lib/api/api';
 
 export interface TourItinerary { id?: number; dayNumber: number; title: string; description: string }
@@ -73,8 +74,13 @@ export default function TourTable() {
   const [deleteTarget,   setDeleteTarget]   = useState<Package | null>(null);
   const [deleting,       setDeleting]       = useState(false);
 
+  const { notifications, notify, dismiss } = useNotification();
+
   useEffect(() => {
-    apiFetchAll().then(setData).finally(() => setLoading(false));
+    apiFetchAll()
+      .then(setData)
+      .catch(() => notify('error', 'Failed to load', 'Could not fetch tours. Is the backend running?'))
+      .finally(() => setLoading(false));
   }, []);
 
   const filtered = activeCategory === 'All'
@@ -95,6 +101,10 @@ export default function TourTable() {
       await apiDelete(deleteTarget.id);
       setData(prev => prev.filter(p => p.id !== deleteTarget.id));
       setDeleteTarget(null);
+      notify('success', 'Tour deleted', `"${deleteTarget.name}" has been permanently removed.`);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message ?? 'Something went wrong. Please try again.';
+      notify('error', 'Delete failed', msg);
     } finally {
       setDeleting(false);
     }
@@ -105,12 +115,21 @@ export default function TourTable() {
     try {
       const updated = await apiToggleActive(pkg.id);
       setData(prev => prev.map(p => p.id === updated.id ? updated : p));
+      notify(
+        'success',
+        updated.isActive ? 'Tour activated' : 'Tour deactivated',
+        `"${updated.name}" is now ${updated.isActive ? 'visible to customers' : 'hidden from listings'}.`,
+      );
+    } catch (err: any) {
+      const msg = err?.response?.data?.message ?? 'Could not update status.';
+      notify('error', 'Status update failed', msg);
     } finally {
       setTogglingId(null);
     }
   };
 
   const handleSaved = (pkg: Package) => {
+    const isEdit = data.some(p => p.id === pkg.id);
     setData(prev => {
       const idx = prev.findIndex(p => p.id === pkg.id);
       if (idx >= 0) { const next = [...prev]; next[idx] = pkg; return next; }
@@ -118,6 +137,13 @@ export default function TourTable() {
     });
     setEditTarget(null);
     setModalOpen(false);
+    notify(
+      'success',
+      isEdit ? 'Tour updated' : 'Tour created',
+      isEdit
+        ? `"${pkg.name}" has been updated successfully.`
+        : `"${pkg.name}" has been added to the listings.`,
+    );
   };
 
   const openEdit = (id: number) => { setEditTarget(data.find(p => p.id === id) ?? null); setModalOpen(true); };
@@ -142,7 +168,7 @@ export default function TourTable() {
     {
       accessorKey: 'durationDays',
       header: 'Duration',
-      cell: ({ getValue }) => <Text fz={13} c="gray.6">{getValue<number>()} days</Text>,
+      cell: ({ row }) => <Text fz={13} c="gray.6">{row.original.days} days</Text>,
     },
     {
       accessorKey: 'difficulty',
@@ -193,28 +219,20 @@ export default function TourTable() {
 
   return (
     <>
+      <AppNotification notifications={notifications} onDismiss={dismiss} />
+
       {/* Delete Confirmation Modal */}
       <Modal
         opened={!!deleteTarget}
         onClose={() => !deleting && setDeleteTarget(null)}
-        centered
-        radius="xl"
-        size="sm"
-        padding={0}
+        centered radius="xl" size="sm" padding={0}
         withCloseButton={false}
         overlayProps={{ backgroundOpacity: 0.4, blur: 3 }}
-        styles={{
-          content: { overflow: 'hidden', border: '1px solid rgba(220,38,38,0.15)' },
-        }}
+        styles={{ content: { overflow: 'hidden', border: '1px solid rgba(220,38,38,0.15)' } }}
       >
-        {/* Red header band */}
         <Box style={{ background: 'linear-gradient(135deg, #7f1d1d 0%, #b91c1c 50%, #dc2626 100%)', padding: `${rem(24)} ${rem(28)} ${rem(20)}` }}>
           <Group gap={12}>
-            <ThemeIcon
-              size={44}
-              radius="xl"
-              style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.2)', flexShrink: 0 }}
-            >
+            <ThemeIcon size={44} radius="xl" style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.2)', flexShrink: 0 }}>
               <IconAlertTriangle size={21} color="white" />
             </ThemeIcon>
             <div>
@@ -224,17 +242,8 @@ export default function TourTable() {
           </Group>
         </Box>
 
-        {/* Body */}
         <Box p={`${rem(22)} ${rem(28)} ${rem(26)}`}>
-          <Box
-            p="md"
-            mb="lg"
-            style={{
-              background: 'linear-gradient(135deg, #fff5f5, #fee2e2)',
-              borderRadius: rem(12),
-              border: '1px solid rgba(220,38,38,0.12)',
-            }}
-          >
+          <Box p="md" mb="lg" style={{ background: 'linear-gradient(135deg, #fff5f5, #fee2e2)', borderRadius: rem(12), border: '1px solid rgba(220,38,38,0.12)' }}>
             <Text fz={13} c="dark.7" fw={500} mb={4} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {deleteTarget?.name}
             </Text>
@@ -250,24 +259,13 @@ export default function TourTable() {
           </Text>
 
           <Group gap="sm">
-            <Button
-              flex={1}
-              size="sm"
-              radius="xl"
-              variant="light"
-              color="gray"
-              onClick={() => setDeleteTarget(null)}
-              disabled={deleting}
+            <Button flex={1} size="sm" radius="xl" variant="light" color="gray"
+              onClick={() => setDeleteTarget(null)} disabled={deleting}
               styles={{ root: { border: '1px solid #e5e7eb', color: '#6b7280', height: rem(40), fontSize: rem(13) } }}
             >
               Cancel
             </Button>
-            <Button
-              flex={2}
-              size="sm"
-              radius="xl"
-              color="red"
-              loading={deleting}
+            <Button flex={2} size="sm" radius="xl" color="red" loading={deleting}
               leftSection={!deleting ? <IconTrash size={14} /> : undefined}
               onClick={doDelete}
               style={{ background: 'linear-gradient(135deg, #dc2626, #7f1d1d)', boxShadow: '0 6px 20px rgba(220,38,38,0.3)', height: rem(40), fontSize: rem(13), fontWeight: 500 }}
@@ -281,9 +279,9 @@ export default function TourTable() {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3 mb-6">
         {[
-          { label: 'Total',    value: loading ? '…' : data.length,     color: 'text-[#1a1a2e]' },
-          { label: 'Active',   value: loading ? '…' : activeCount,     color: 'text-teal-600'  },
-          { label: 'Inactive', value: loading ? '…' : inactiveCount,   color: 'text-gray-400'  },
+          { label: 'Total',    value: loading ? '…' : data.length,   color: 'text-[#1a1a2e]' },
+          { label: 'Active',   value: loading ? '…' : activeCount,   color: 'text-teal-600'  },
+          { label: 'Inactive', value: loading ? '…' : inactiveCount, color: 'text-gray-400'  },
         ].map(s => (
           <div key={s.label} className="bg-white border border-gray-100 rounded-[14px] px-4 py-3 shadow-[0_2px_8px_rgba(30,80,120,0.05)]">
             <div className={`font-playfair text-[1.6rem] font-light leading-none ${s.color}`}>{s.value}</div>
@@ -296,7 +294,6 @@ export default function TourTable() {
       <div className="bg-white border border-gray-100 rounded-[18px] shadow-[0_4px_24px_rgba(30,80,120,0.07)] overflow-hidden">
         <div className="h-1 w-full bg-gradient-to-r from-[#C9963B] via-[#2E86C1] to-[#1A5276]" />
 
-        {/* Toolbar */}
         <div className="flex items-center justify-between px-4 pt-4 pb-2">
           <div className="flex items-center gap-2">
             {CATEGORIES.map(cat => (

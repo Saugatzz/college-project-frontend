@@ -12,15 +12,12 @@ import {
 import { ColumnDef } from "@tanstack/react-table";
 import api from "@/lib/api/api";
 import MantineTable from "@/components/common/MantineTable";
+import AppNotification, { useNotification } from "@/components/common/AppNotification";
 
 type BookingStatus = "pending" | "confirmed" | "cancelled";
 type PaymentMethod = "Khalti" | "eSewa" | "Card";
 
-interface BookingAddon {
-  id: number;
-  name: string;
-  price: number;
-}
+interface BookingAddon { id: number; name: string; price: number }
 
 interface Booking {
   id: number;
@@ -69,15 +66,10 @@ function DetailField({ icon, label, value }: { icon: React.ReactNode; label: str
         {icon}
       </ThemeIcon>
       <Box>
-        <Box component="span" style={{
-          display: "block", letterSpacing: "0.1em", textTransform: "uppercase",
-          marginBottom: 2, color: "var(--mantine-color-gray-6)", fontSize: rem(10), fontWeight: 700,
-        }}>
+        <Box component="span" style={{ display: "block", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 2, color: "var(--mantine-color-gray-6)", fontSize: rem(10), fontWeight: 700 }}>
           {label}
         </Box>
-        <Box component="span" style={{
-          display: "block", fontSize: rem(13), fontWeight: 500, color: "var(--mantine-color-dark-7)",
-        }}>
+        <Box component="span" style={{ display: "block", fontSize: rem(13), fontWeight: 500, color: "var(--mantine-color-dark-7)" }}>
           {value || "—"}
         </Box>
       </Box>
@@ -85,21 +77,22 @@ function DetailField({ icon, label, value }: { icon: React.ReactNode; label: str
   );
 }
 
-function BookingDrawer({ booking, opened, onClose, onStatusChange }: {
+function BookingDrawer({ booking, opened, onClose, onStatusChange, onNotify }: {
   booking: Booking | null;
   opened: boolean;
   onClose: () => void;
   onStatusChange: (id: number, status: BookingStatus) => void;
+  onNotify: (type: 'success' | 'error', title: string, message: string) => void;
 }) {
   const [localStatus, setLocalStatus] = useState<BookingStatus>("pending");
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [saving,      setSaving]      = useState(false);
+  const [saved,       setSaved]       = useState(false);
 
   useEffect(() => { if (booking) setLocalStatus(booking.status); }, [booking]);
   if (!booking) return null;
 
-  const sc = STATUS_CONFIG[localStatus] ?? STATUS_CONFIG.pending;
-  const tourName     = booking.tour?.title ?? booking.tour?.name ?? "—";
+  const sc          = STATUS_CONFIG[localStatus] ?? STATUS_CONFIG.pending;
+  const tourName    = booking.tour?.title ?? booking.tour?.name ?? "—";
   const tourDuration = booking.tour?.durationDays
     ? `${booking.tour.durationDays} Days`
     : (booking.tour?.duration ?? "—");
@@ -111,14 +104,21 @@ function BookingDrawer({ booking, opened, onClose, onStatusChange }: {
       onStatusChange(booking.id, localStatus);
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
-    } catch {
+      onNotify(
+        'success',
+        'Status updated',
+        `Booking #${String(booking.id).padStart(4, '0')} is now ${localStatus}.`,
+      );
+    } catch (err: any) {
+      const msg = err?.response?.data?.message ?? 'Could not update status. Try again.';
+      onNotify('error', 'Update failed', msg);
       setLocalStatus(booking.status);
     } finally {
       setSaving(false);
     }
   };
 
-  const initials  = `${booking.firstName[0] ?? ""}${booking.lastName[0] ?? ""}`.toUpperCase();
+  const initials   = `${booking.firstName[0] ?? ""}${booking.lastName[0] ?? ""}`.toUpperCase();
   const receiptUrl = booking.receiptPath
     ? `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000"}/${booking.receiptPath}`
     : null;
@@ -132,20 +132,12 @@ function BookingDrawer({ booking, opened, onClose, onStatusChange }: {
         content: { borderLeft: "1px solid #e8f0f8" },
       }}
     >
-      <Box style={{
-        background: "linear-gradient(135deg, #0f4c81 0%, #1a6ea8 50%, #2e86c1 100%)",
-        padding: `${rem(24)} ${rem(28)}`, position: "relative", flexShrink: 0,
-      }}>
+      <Box style={{ background: "linear-gradient(135deg, #0f4c81 0%, #1a6ea8 50%, #2e86c1 100%)", padding: `${rem(24)} ${rem(28)}`, position: "relative", flexShrink: 0 }}>
         <div style={{ position: "absolute", top: -20, right: -20, width: 120, height: 120, borderRadius: "50%", background: "rgba(255,255,255,0.05)" }} />
         <div style={{ position: "absolute", bottom: -30, left: 40, width: 80, height: 80, borderRadius: "50%", background: "rgba(255,255,255,0.04)" }} />
         <Group justify="space-between" align="flex-start" mb={16}>
           <Group gap={14}>
-            <Box style={{
-              width: rem(48), height: rem(48), borderRadius: "50%",
-              background: "rgba(255,255,255,0.15)", border: "2px solid rgba(255,255,255,0.3)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: rem(16), fontWeight: 800, color: "white",
-            }}>
+            <Box style={{ width: rem(48), height: rem(48), borderRadius: "50%", background: "rgba(255,255,255,0.15)", border: "2px solid rgba(255,255,255,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: rem(16), fontWeight: 800, color: "white" }}>
               {initials}
             </Box>
             <Box>
@@ -158,10 +150,7 @@ function BookingDrawer({ booking, opened, onClose, onStatusChange }: {
           </ActionIcon>
         </Group>
         <Group gap={10} align="center">
-          <Box style={{
-            display: "flex", alignItems: "center", gap: rem(6),
-            background: sc.bg, borderRadius: rem(20), padding: `${rem(4)} ${rem(12)}`,
-          }}>
+          <Box style={{ display: "flex", alignItems: "center", gap: rem(6), background: sc.bg, borderRadius: rem(20), padding: `${rem(4)} ${rem(12)}` }}>
             <Box style={{ width: 7, height: 7, borderRadius: "50%", background: sc.dot, flexShrink: 0 }} />
             <Text fz={12} fw={700} style={{ color: sc.dot }}>{sc.label}</Text>
           </Box>
@@ -181,7 +170,7 @@ function BookingDrawer({ booking, opened, onClose, onStatusChange }: {
         <Paper radius="lg" p="md" mb="lg" style={{ background: "linear-gradient(135deg, #f0f8ff, #e8f4fc)", border: "1px solid rgba(46,134,193,0.12)" }}>
           <Text fz={10} fw={700} c="blue.6" mb={10} style={{ letterSpacing: "0.12em", textTransform: "uppercase" }}>Tour Details</Text>
           <Stack gap={10}>
-            <DetailField icon={<IconMountain size={15} />} label="Tour" value={tourName} />
+            <DetailField icon={<IconMountain size={15} />} label="Tour"     value={tourName} />
             <DetailField icon={<IconCalendar size={15} />} label="Duration" value={tourDuration} />
             {booking.departureDate && (
               <DetailField icon={<IconClock size={15} />} label="Departure"
@@ -319,11 +308,13 @@ function BookingDrawer({ booking, opened, onClose, onStatusChange }: {
 }
 
 export default function BookingTable() {
-  const [bookings,   setBookings]  = useState<Booking[]>([]);
-  const [loading,    setLoading]   = useState(true);
-  const [error,      setError]     = useState("");
-  const [selected,   setSelected]  = useState<Booking | null>(null);
+  const [bookings,   setBookings]   = useState<Booking[]>([]);
+  const [loading,    setLoading]    = useState(true);
+  const [error,      setError]      = useState("");
+  const [selected,   setSelected]   = useState<Booking | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const { notifications, notify, dismiss } = useNotification();
 
   const fetchBookings = async () => {
     setLoading(true);
@@ -332,7 +323,9 @@ export default function BookingTable() {
       const { data } = await api.get<Booking[]>("/bookings");
       setBookings(data);
     } catch (err: any) {
-      setError(err?.response?.data?.message ?? "Failed to load bookings. Is the backend running?");
+      const msg = err?.response?.data?.message ?? "Failed to load bookings. Is the backend running?";
+      setError(msg);
+      notify('error', 'Failed to load bookings', msg);
     } finally {
       setLoading(false);
     }
@@ -349,6 +342,21 @@ export default function BookingTable() {
     setBookings(prev => prev.map(b => b.id === id ? { ...b, status } : b));
     setSelected(prev => prev?.id === id ? { ...prev, status } : prev);
   }, []);
+
+  const handleInlineStatusChange = async (b: Booking, newStatus: BookingStatus) => {
+    try {
+      await api.patch(`/bookings/${b.id}/status`, { status: newStatus });
+      handleStatusChange(b.id, newStatus);
+      notify(
+        'success',
+        'Status updated',
+        `Booking #${String(b.id).padStart(4, '0')} is now ${newStatus}.`,
+      );
+    } catch (err: any) {
+      const msg = err?.response?.data?.message ?? 'Could not update status.';
+      notify('error', 'Update failed', msg);
+    }
+  };
 
   const pendingCount   = bookings.filter(b => b.status === "pending").length;
   const confirmedCount = bookings.filter(b => b.status === "confirmed").length;
@@ -369,12 +377,7 @@ export default function BookingTable() {
         const initials = `${b.firstName[0] ?? ""}${b.lastName[0] ?? ""}`.toUpperCase();
         return (
           <Group gap={10} wrap="nowrap">
-            <Box style={{
-              width: rem(30), height: rem(30), borderRadius: "50%",
-              background: "linear-gradient(135deg, #dbeafe, #bfdbfe)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: rem(10), fontWeight: 700, color: "#1e40af", flexShrink: 0,
-            }}>
+            <Box style={{ width: rem(30), height: rem(30), borderRadius: "50%", background: "linear-gradient(135deg, #dbeafe, #bfdbfe)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: rem(10), fontWeight: 700, color: "#1e40af", flexShrink: 0 }}>
               {initials}
             </Box>
             <Box style={{ overflow: "hidden" }}>
@@ -389,7 +392,7 @@ export default function BookingTable() {
       id: "tour", header: "Tour",
       accessorFn: (row) => row.tour?.title ?? row.tour?.name ?? "",
       cell: ({ row }) => {
-        const b = row.original;
+        const b        = row.original;
         const name     = b.tour?.title ?? b.tour?.name;
         const duration = b.tour?.durationDays ? `${b.tour.durationDays} Days` : b.tour?.duration;
         return (
@@ -462,24 +465,20 @@ export default function BookingTable() {
       cell: ({ row }) => {
         const b  = row.original;
         const sc = STATUS_CONFIG[b.status] ?? STATUS_CONFIG.pending;
-        const handleChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-          e.stopPropagation();
-          const newStatus = e.target.value as BookingStatus;
-          try {
-            await api.patch(`/bookings/${b.id}/status`, { status: newStatus });
-            handleStatusChange(b.id, newStatus);
-          } catch {}
-        };
         return (
           <Box onClick={(e) => e.stopPropagation()}>
-            <select value={b.status} onChange={handleChange} style={{
-              border: `1.5px solid ${sc.dot}33`, borderRadius: rem(20),
-              padding: `${rem(3)} ${rem(10)}`, fontSize: rem(11), fontWeight: 700,
-              color: sc.dot, background: sc.bg, cursor: "pointer", outline: "none",
-              appearance: "none", WebkitAppearance: "none", paddingRight: rem(22),
-              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23${sc.dot.slice(1)}'/%3E%3C/svg%3E")`,
-              backgroundRepeat: "no-repeat", backgroundPosition: `right ${rem(7)} center`,
-            }}>
+            <select
+              value={b.status}
+              onChange={(e) => handleInlineStatusChange(b, e.target.value as BookingStatus)}
+              style={{
+                border: `1.5px solid ${sc.dot}33`, borderRadius: rem(20),
+                padding: `${rem(3)} ${rem(10)}`, fontSize: rem(11), fontWeight: 700,
+                color: sc.dot, background: sc.bg, cursor: "pointer", outline: "none",
+                appearance: "none", WebkitAppearance: "none", paddingRight: rem(22),
+                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23${sc.dot.slice(1)}'/%3E%3C/svg%3E")`,
+                backgroundRepeat: "no-repeat", backgroundPosition: `right ${rem(7)} center`,
+              }}
+            >
               <option value="pending">Pending</option>
               <option value="confirmed">Confirmed</option>
               <option value="cancelled">Cancelled</option>
@@ -517,12 +516,14 @@ export default function BookingTable() {
 
   return (
     <>
+      <AppNotification notifications={notifications} onDismiss={dismiss} />
+
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         {[
-          { label: "Total Bookings", value: bookings.length,                        color: "text-[#1a1a2e]" },
-          { label: "Confirmed",      value: confirmedCount,                         color: "text-teal-600"  },
-          { label: "Pending",        value: pendingCount,                           color: "text-amber-500" },
-          { label: "Revenue",        value: `$${totalRevenue.toLocaleString()}`,    color: "text-[#2E86C1]" },
+          { label: "Total Bookings", value: bookings.length,                     color: "text-[#1a1a2e]" },
+          { label: "Confirmed",      value: confirmedCount,                      color: "text-teal-600"  },
+          { label: "Pending",        value: pendingCount,                        color: "text-amber-500" },
+          { label: "Revenue",        value: `$${totalRevenue.toLocaleString()}`, color: "text-[#2E86C1]" },
         ].map(s => (
           <div key={s.label} className="bg-white border border-gray-100 rounded-[14px] px-4 py-3 shadow-[0_2px_8px_rgba(30,80,120,0.05)]">
             <div className={`font-playfair text-[1.6rem] font-light leading-none ${s.color}`}>{s.value}</div>
@@ -533,14 +534,14 @@ export default function BookingTable() {
 
       <div className="bg-white border border-gray-100 rounded-[18px] shadow-[0_4px_24px_rgba(30,80,120,0.07)] overflow-hidden">
         <div className="h-1 w-full bg-gradient-to-r from-[#0f4c81] via-[#2E86C1] to-[#1a6ea8]" />
-       <MantineTable<Booking>
-  data={bookings}
-  columns={columns}
-  enableGlobalFilter
-  enablePagination
-  renderBottomToolbar
-  onRowClick={handleRowClick}
-/>
+        <MantineTable<Booking>
+          data={bookings}
+          columns={columns}
+          enableGlobalFilter
+          enablePagination
+          renderBottomToolbar
+          onRowClick={handleRowClick}
+        />
       </div>
 
       <BookingDrawer
@@ -548,6 +549,7 @@ export default function BookingTable() {
         opened={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         onStatusChange={handleStatusChange}
+        onNotify={notify}
       />
     </>
   );

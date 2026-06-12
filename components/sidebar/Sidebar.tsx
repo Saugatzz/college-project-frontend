@@ -86,13 +86,13 @@ export default function Sidebar() {
         },
       ],
     },
-    {
-      label: "Insights",
-      items: [
-        { href: "/dashboard/analytics", icon: "chart-bar", label: "Analytics" },
-        { href: "/dashboard/reviews",   icon: "star",      label: "Reviews" },
-      ],
-    },
+    // {
+    //   label: "Insights",
+    //   items: [
+    //     { href: "/dashboard/analytics", icon: "chart-bar", label: "Analytics" },
+    //     { href: "/dashboard/reviews",   icon: "star",      label: "Reviews" },
+    //   ],
+    // },
     {
       label: "Config",
       items: [

@@ -236,7 +236,7 @@ export default function AddTourModal({ opened, onClose, onSaved, editData }: Pro
                 onBlur={() => setTouched(t => ({ ...t, location: true }))}
               />
               <TextInput
-                label="Badge Label" value={fields.badge} styles={inputSx}
+                label="Tour tags (eg : Family friendly)" value={fields.badge} styles={inputSx}
                 onChange={e => set('badge')(e.target.value)}
               />
             </div>
