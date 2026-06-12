@@ -3,7 +3,7 @@ import { packageToTour } from '@/lib/adapters/packageToTour';
 import { Package }       from '@/components/dashboard/TourTable';
 import TourDetailPage    from '@/components/pages/TourDetailPage';
 
-const BASE = process.env.API_URL ?? 'http://localhost:4000';
+const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
 async function fetchBySlug(slug: string): Promise<Package | null> {
   try {
