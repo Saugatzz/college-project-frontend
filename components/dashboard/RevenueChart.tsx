@@ -3,18 +3,12 @@
 import { useEffect, useState } from "react";
 import api from "@/lib/api/api";
 import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-  ReferenceLine,
+  Area, AreaChart, CartesianGrid, ResponsiveContainer,
+  Tooltip, XAxis, YAxis, ReferenceLine,
 } from "recharts";
 
 interface Booking {
-  totalAmount: number;
+  totalAmount: number | string;
   status: string;
   createdAt: string;
 }
@@ -36,7 +30,7 @@ function buildChartData(bookings: Booking[], range: Range) {
     if (b.status === "cancelled") return;
     const d = new Date(b.createdAt);
     const key = d.toLocaleString("default", { month: "short", year: "2-digit" });
-    if (key in buckets) buckets[key] += b.totalAmount;
+    if (key in buckets) buckets[key] += Number(b.totalAmount); // ← fix: was doing string concat
   });
 
   const currentKey = now.toLocaleString("default", { month: "short", year: "2-digit" });
@@ -48,14 +42,12 @@ function buildChartData(bookings: Booking[], range: Range) {
   }));
 }
 
-// Custom dot: highlight the current month
 function CustomDot(props: any) {
   const { cx, cy, payload } = props;
   if (!payload?.isCurrent) return null;
   return <circle cx={cx} cy={cy} r={5} fill="#1A5276" stroke="#fff" strokeWidth={2} />;
 }
 
-// Custom tooltip
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
@@ -68,29 +60,27 @@ function CustomTooltip({ active, payload, label }: any) {
 
 export default function RevenueChart() {
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [range, setRange] = useState<Range>("1Y");
-  const [loading, setLoading] = useState(true);
+  const [range,    setRange]    = useState<Range>("1Y");
+  const [loading,  setLoading]  = useState(true);
 
   useEffect(() => {
-    api
-      .get<Booking[]>("/bookings")
+    api.get<Booking[]>("/bookings")
       .then((r) => setBookings(r.data))
       .finally(() => setLoading(false));
   }, []);
 
-  const data = buildChartData(bookings, range);
+  const data         = buildChartData(bookings, range);
   const currentMonth = data.find((d) => d.isCurrent);
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 p-5 h-full">
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h2 className="font-playfair text-lg font-medium text-[#1a1a2e]">
-            Revenue overview
-          </h2>
+          <h2 className="font-playfair text-lg font-medium text-[#1a1a2e]">Revenue overview</h2>
           {currentMonth && (
             <p className="text-xs text-gray-400 mt-0.5">
-              This month: <span className="font-medium text-gray-600">${currentMonth.revenue}k</span>
+              This month:{" "}
+              <span className="font-medium text-gray-600">${currentMonth.revenue}k</span>
             </p>
           )}
         </div>
@@ -120,7 +110,7 @@ export default function RevenueChart() {
           <AreaChart data={data} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
             <defs>
               <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#1A5276" stopOpacity={0.12} />
+                <stop offset="5%"  stopColor="#1A5276" stopOpacity={0.12} />
                 <stop offset="95%" stopColor="#1A5276" stopOpacity={0} />
               </linearGradient>
             </defs>
@@ -128,13 +118,11 @@ export default function RevenueChart() {
             <XAxis
               dataKey="month"
               tick={{ fontSize: 11, fill: "#9ca3af" }}
-              axisLine={false}
-              tickLine={false}
+              axisLine={false} tickLine={false}
             />
             <YAxis
               tick={{ fontSize: 11, fill: "#9ca3af" }}
-              axisLine={false}
-              tickLine={false}
+              axisLine={false} tickLine={false}
               tickFormatter={(v) => `$${v}k`}
             />
             <Tooltip content={<CustomTooltip />} />
