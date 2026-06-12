@@ -360,8 +360,9 @@ export default function BookingTable() {
 
   const pendingCount   = bookings.filter(b => b.status === "pending").length;
   const confirmedCount = bookings.filter(b => b.status === "confirmed").length;
-  const totalRevenue   = bookings.reduce((s, b) => s + Number(b.totalAmount), 0);
-
+const totalRevenue = bookings
+  .filter(b => b.status !== "cancelled")
+  .reduce((s, b) => s + Number(b.totalAmount), 0);
   const columns: ColumnDef<Booking, any>[] = [
     {
       id: "id", accessorKey: "id", header: "#", size: 72,
