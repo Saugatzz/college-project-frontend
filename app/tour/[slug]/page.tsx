@@ -17,9 +17,13 @@ async function fetchBySlug(slug: string): Promise<Package | null> {
   }
 }
 
-async function fetchPackages(): Promise<Package[]> {
+// Cosine-similarity content-based recommendations computed server-side
+// (see backend: src/package/algorithms/recommendation.util.ts).
+async function fetchSimilar(id: number): Promise<Package[]> {
   try {
-    const res = await fetch(`${BASE}/packages`, { next: { revalidate: 60 } });
+    const res = await fetch(`${BASE}/packages/${id}/similar?limit=3`, {
+      next: { revalidate: 60 },
+    });
     if (!res.ok) return [];
     return res.json();
   } catch {
@@ -34,14 +38,13 @@ export default async function TourPage({
 }) {
   const { slug } = await params;
 
-  const [pkg, all] = await Promise.all([fetchBySlug(slug), fetchPackages()]);
+  const pkg = await fetchBySlug(slug);
   if (!pkg) notFound();
 
+  const similarPkgs = await fetchSimilar(pkg.id);
+
   const tour    = packageToTour(pkg);
-  const similar = all
-    .filter(p => p.id !== pkg.id && p.category === pkg.category)
-    .slice(0, 3)
-    .map(packageToTour);
+  const similar = similarPkgs.map(packageToTour);
 
   return <TourDetailPage tour={tour} similarTours={similar} />;
 }

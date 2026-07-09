@@ -29,7 +29,8 @@ type CommonMantineTableProps<T extends Record<string, any>> = {
   enablePagination?: boolean;
   renderBottomToolbar?: boolean;
   renderDetailPanel?: (props: { row: Row<T> }) => React.ReactNode;
-  onRowClick?: (row: T) => void;         // ← new
+  onRowClick?: (row: T) => void;
+  minWidth?: number; // ← new: minimum width before horizontal scroll kicks in
 };
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -42,7 +43,8 @@ function MantineTable<T extends Record<string, any>>({
   renderBottomToolbar = false,
   renderRowActions,
   renderDetailPanel,
-  onRowClick,                            // ← new
+  onRowClick,
+  minWidth = 900, // ← new
 }: CommonMantineTableProps<T>) {
   const [sorting, setSorting]           = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
@@ -110,132 +112,154 @@ function MantineTable<T extends Record<string, any>>({
         </Group>
       )}
 
-      {/* ── Table ── */}
-      <Table highlightOnHover style={{ tableLayout: 'fixed', width: '100%' }}>
-        {/* Head */}
-        <Table.Thead style={{ background: '#fafbfc', borderBottom: '1px solid #f0f4f8' }}>
-          {table.getHeaderGroups().map(headerGroup => (
-            <Table.Tr key={headerGroup.id}>
-              {hasDetail && <Table.Th style={{ width: rem(40), padding: `${rem(10)} ${rem(8)}` }} />}
-
-              {headerGroup.headers.map(header => (
-                <Table.Th
-                  key={header.id}
-                  style={{
-                    width: header.getSize() !== 150 ? rem(header.getSize()) : undefined,
-                    padding: `${rem(10)} ${rem(16)}`,
-                    cursor: header.column.getCanSort() ? 'pointer' : 'default',
-                    userSelect: 'none',
-                    whiteSpace: 'nowrap',
-                  }}
-                  onClick={header.column.getToggleSortingHandler()}
-                >
-                  <Group gap={4} wrap="nowrap">
-                    <Text
-                      fz={11} fw={600} c="gray.5"
-                      style={{ letterSpacing: '0.08em', textTransform: 'uppercase' }}
-                    >
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(header.column.columnDef.header, header.getContext())}
-                    </Text>
-                    {header.column.getCanSort() && (
-                      <>
-                        {header.column.getIsSorted() === 'asc'  && <IconChevronUp   size={13} color="#1A5276" />}
-                        {header.column.getIsSorted() === 'desc' && <IconChevronDown size={13} color="#1A5276" />}
-                        {!header.column.getIsSorted()           && <IconSelector    size={13} color="#cbd5e1" />}
-                      </>
-                    )}
-                  </Group>
-                </Table.Th>
-              ))}
-
-              {hasActions && (
-                <Table.Th style={{ width: rem(80), padding: `${rem(10)} ${rem(16)}` }}>
-                  <Text fz={11} fw={600} c="gray.5" style={{ letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                    Actions
-                  </Text>
-                </Table.Th>
-              )}
-            </Table.Tr>
-          ))}
-        </Table.Thead>
-
-        {/* Body */}
-        <Table.Tbody>
-          {table.getRowModel().rows.length === 0 ? (
-            <Table.Tr>
-              <Table.Td
-                colSpan={columns.length + (hasDetail ? 1 : 0) + (hasActions ? 1 : 0)}
-                style={{ textAlign: 'center', padding: rem(40) }}
-              >
-                <Text fz={13} c="dimmed">No records to display</Text>
-              </Table.Td>
-            </Table.Tr>
-          ) : (
-            table.getRowModel().rows.map(row => (
-              <React.Fragment key={row.id}>
-                <Table.Tr
-                  style={{
-                    borderBottom: '1px solid #f8fafc',
-                    transition: 'background 0.15s',
-                    cursor: onRowClick ? 'pointer' : 'default',
-                  }}
-                  onClick={() => onRowClick?.(row.original)}
-                >
-                  {/* Expand toggle */}
-                  {hasDetail && (
-                    <Table.Td style={{ padding: `${rem(12)} ${rem(8)}`, width: rem(40) }}>
-                      <ActionIcon
-                        size="xs"
-                        variant="subtle"
-                        color="gray"
-                        onClick={(e) => {
-                          e.stopPropagation(); // don't trigger row click
-                          toggleRow(row.id);
-                        }}
-                      >
-                        {expandedRows[row.id]
-                          ? <IconChevronUp size={13} />
-                          : <IconChevronDown size={13} />}
-                      </ActionIcon>
-                    </Table.Td>
-                  )}
-
-                  {/* Data cells */}
-                  {row.getVisibleCells().map(cell => (
-                    <Table.Td key={cell.id} style={{ padding: `${rem(12)} ${rem(16)}` }}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </Table.Td>
-                  ))}
-
-                  {/* Row actions */}
-                  {hasActions && (
-                    <Table.Td
-                      style={{ padding: `${rem(12)} ${rem(16)}` }}
-                      onClick={(e) => e.stopPropagation()} // don't trigger row click
-                    >
-                      {renderRowActions!(row.original)}
-                    </Table.Td>
-                  )}
-                </Table.Tr>
-
-                {/* Detail panel row */}
-                {hasDetail && expandedRows[row.id] && (
-                  <Table.Tr style={{ background: '#f8fafc' }}>
-                    <Table.Td
-                      colSpan={columns.length + (hasDetail ? 1 : 0) + (hasActions ? 1 : 0)}
-                      style={{ padding: `${rem(12)} ${rem(24)}` }}
-                    >
-                      {renderDetailPanel!({ row })}
-                    </Table.Td>
-                  </Table.Tr>
+      {/* ── Table (wrapped in horizontal scroll container) ── */}
+      <Table.ScrollContainer minWidth={minWidth}>
+        <Table highlightOnHover style={{ tableLayout: 'fixed', width: '100%' }}>
+          {/* Head */}
+          <Table.Thead style={{ background: '#fafbfc', borderBottom: '1px solid #f0f4f8' }}>
+            {table.getHeaderGroups().map(headerGroup => (
+              <Table.Tr key={headerGroup.id}>
+                {hasDetail && (
+                  <Table.Th
+                    style={{ width: rem(40), minWidth: rem(40), padding: `${rem(10)} ${rem(8)}` }}
+                  />
                 )}
-              </React.Fragment>
-            ))
-          )}
-        </Table.Tbody>
-      </Table>
+
+                {headerGroup.headers.map(header => (
+                  <Table.Th
+                    key={header.id}
+                    style={{
+                      width: header.getSize() !== 150 ? rem(header.getSize()) : undefined,
+                      padding: `${rem(10)} ${rem(16)}`,
+                      cursor: header.column.getCanSort() ? 'pointer' : 'default',
+                      userSelect: 'none',
+                      whiteSpace: 'nowrap',
+                    }}
+                    onClick={header.column.getToggleSortingHandler()}
+                  >
+                    <Group gap={4} wrap="nowrap">
+                      <Text
+                        fz={11} fw={600} c="gray.5"
+                        style={{ letterSpacing: '0.08em', textTransform: 'uppercase' }}
+                      >
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(header.column.columnDef.header, header.getContext())}
+                      </Text>
+                      {header.column.getCanSort() && (
+                        <>
+                          {header.column.getIsSorted() === 'asc'  && <IconChevronUp   size={13} color="#1A5276" />}
+                          {header.column.getIsSorted() === 'desc' && <IconChevronDown size={13} color="#1A5276" />}
+                          {!header.column.getIsSorted()           && <IconSelector    size={13} color="#cbd5e1" />}
+                        </>
+                      )}
+                    </Group>
+                  </Table.Th>
+                ))}
+
+                {hasActions && (
+                  <Table.Th
+                    style={{
+                      width: rem(160),
+                      minWidth: rem(160),
+                      padding: `${rem(10)} ${rem(16)}`,
+                      position: 'sticky',
+                      right: 0,
+                      background: '#fafbfc',
+                    }}
+                  >
+                    <Text fz={11} fw={600} c="gray.5" style={{ letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                      Actions
+                    </Text>
+                  </Table.Th>
+                )}
+              </Table.Tr>
+            ))}
+          </Table.Thead>
+
+          {/* Body */}
+          <Table.Tbody>
+            {table.getRowModel().rows.length === 0 ? (
+              <Table.Tr>
+                <Table.Td
+                  colSpan={columns.length + (hasDetail ? 1 : 0) + (hasActions ? 1 : 0)}
+                  style={{ textAlign: 'center', padding: rem(40) }}
+                >
+                  <Text fz={13} c="dimmed">No records to display</Text>
+                </Table.Td>
+              </Table.Tr>
+            ) : (
+              table.getRowModel().rows.map(row => (
+                <React.Fragment key={row.id}>
+                  <Table.Tr
+                    style={{
+                      borderBottom: '1px solid #f8fafc',
+                      transition: 'background 0.15s',
+                      cursor: onRowClick ? 'pointer' : 'default',
+                    }}
+                    onClick={() => onRowClick?.(row.original)}
+                  >
+                    {/* Expand toggle */}
+                    {hasDetail && (
+                      <Table.Td style={{ padding: `${rem(12)} ${rem(8)}`, width: rem(40), minWidth: rem(40) }}>
+                        <ActionIcon
+                          size="xs"
+                          variant="subtle"
+                          color="gray"
+                          onClick={(e) => {
+                            e.stopPropagation(); // don't trigger row click
+                            toggleRow(row.id);
+                          }}
+                        >
+                          {expandedRows[row.id]
+                            ? <IconChevronUp size={13} />
+                            : <IconChevronDown size={13} />}
+                        </ActionIcon>
+                      </Table.Td>
+                    )}
+
+                    {/* Data cells */}
+                    {row.getVisibleCells().map(cell => (
+                      <Table.Td key={cell.id} style={{ padding: `${rem(12)} ${rem(16)}` }}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </Table.Td>
+                    ))}
+
+                    {/* Row actions */}
+                    {hasActions && (
+                      <Table.Td
+                        style={{
+                          padding: `${rem(12)} ${rem(16)}`,
+                          width: rem(160),
+                          minWidth: rem(160),
+                          position: 'sticky',
+                          right: 0,
+                          background: '#fff',
+                        }}
+                        onClick={(e) => e.stopPropagation()} // don't trigger row click
+                      >
+                        {renderRowActions!(row.original)}
+                      </Table.Td>
+                    )}
+                  </Table.Tr>
+
+                  {/* Detail panel row */}
+                  {hasDetail && expandedRows[row.id] && (
+                    <Table.Tr style={{ background: '#f8fafc' }}>
+                      <Table.Td
+                        colSpan={columns.length + (hasDetail ? 1 : 0) + (hasActions ? 1 : 0)}
+                        style={{ padding: `${rem(12)} ${rem(24)}` }}
+                      >
+                        {renderDetailPanel!({ row })}
+                      </Table.Td>
+                    </Table.Tr>
+                  )}
+                </React.Fragment>
+              ))
+            )}
+          </Table.Tbody>
+        </Table>
+      </Table.ScrollContainer>
 
       {/* ── Bottom toolbar ── */}
       {renderBottomToolbar && enablePagination && (
