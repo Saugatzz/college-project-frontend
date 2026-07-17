@@ -1587,7 +1587,6 @@ export default function CheckoutClient() {
           </aside>
         </div>
       </main>
-      <Footer />
     </>
   );
 }

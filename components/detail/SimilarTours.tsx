@@ -16,7 +16,7 @@ export default function SimilarTours({ tours }: { tours: Tour[] }) {
         {tours.map(tour => (
           <Link
             key={tour.id}
-            href={`/tour/${tour.id}`}
+            href={`/tour/${tour.slug}`}
             aria-label={`${tour.name}, ${tour.duration}, from $${tour.price}`}
             className="bg-white rounded-[10px] border border-sky-mid/15 overflow-hidden no-underline text-inherit transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_4px_24px_rgba(30,80,120,0.13)] shadow-[0_2px_12px_rgba(30,80,120,0.08)] block"
           >

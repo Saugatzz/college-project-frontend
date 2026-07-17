@@ -29,6 +29,9 @@ export default function HomePageClient() {   // ← no more tours prop
         </div>
       </div>
 
+      {/* Scroll anchor for header nav links (works for both mobile & desktop search layouts) */}
+      <div id="search-section" className="scroll-mt-[80px]" />
+
       {/* Mobile-only search — flows below hero */}
       <div className="sm:hidden bg-snow px-4 pt-4 pb-2">
         <SearchSection onSearch={handleHeroSearch} />
