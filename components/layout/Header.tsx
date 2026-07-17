@@ -18,8 +18,15 @@ export default function Header() {
   return (
     <header className={`fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 md:px-12 h-[68px] bg-[rgba(248,252,255,0.88)] backdrop-blur-lg border-b border-sky-mid/20 transition-shadow duration-300 ${scrolled ? 'shadow-[0_8px_40px_rgba(30,80,120,0.10)]' : ''}`}>
       <Link href="/" aria-label="eBooking Nepal home" className="flex items-center no-underline select-none">
-        <Image src="/images/logo.png" alt="eBooking Nepal" width={120} height={38} className="h-[38px] w-auto object-contain" />
-      </Link>
+  <Image
+    src="/images/logos.png"
+    alt="eBooking Nepal"
+    width={220}
+    height={67}
+    priority
+    className="h-14 w-auto object-contain"
+  />
+</Link>
 
       {/* Desktop nav */}
       <nav className="hidden md:flex gap-8 items-center">

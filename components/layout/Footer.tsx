@@ -58,9 +58,15 @@ export default function Footer() {
 
           {/* Brand column */}
           <div className="lg:col-span-1 flex flex-col items-center md:items-start">
-            <Link href="/" className="bg-white p-3 rounded-xl inline-block mb-5">
-              <Image src="/images/logo.png" alt="eBooking Nepal" width={110} height={35} className="h-[35px] w-auto brightness-200" />
-            </Link>
+            <Link href="/" className="bg-white p-4 rounded-xl inline-block mb-5">
+  <Image
+    src="/images/logos.png"
+    alt="eBooking Nepal"
+    width={200}
+    height={61}
+    className="h-12 w-auto object-contain"
+  />
+</Link>
             <p className="text-[0.875rem] text-white/55 leading-[1.75] font-light mb-6 text-center md:text-left">
               Nepal's premier curated tour platform — connecting adventurers with the Himalayan soul since 2015.
             </p>
