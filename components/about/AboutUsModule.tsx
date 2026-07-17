@@ -2,10 +2,10 @@ import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 
 const team = [
-  { name: 'Aarav Shrestha', role: 'Founder & Lead Guide', bio: "Born in the shadow of the Himalayas, Aarav has led over 400 treks across Nepal's highest peaks.", initials: 'AS', tours: '400+', years: '15' },
-  { name: 'Priya Tamang', role: 'Head of Operations', bio: 'With 12 years in sustainable tourism, Priya ensures every journey runs flawlessly and responsibly.', initials: 'PT', tours: '200+', years: '12' },
-  { name: 'Bikash Gurung', role: 'Senior Trek Guide', bio: "A certified mountaineer who speaks five languages and knows every trail like the back of his hand.", initials: 'BG', tours: '300+', years: '10' },
-  { name: 'Sunita Rai', role: 'Guest Experience Manager', bio: "Sunita's passion is crafting personalised moments that turn first-time visitors into lifelong adventurers.", initials: 'SR', tours: '150+', years: '8' },
+  { name: 'Saugat Panta', role: 'Founder & Lead Guide', bio: "Born in the shadow of the Himalayas, Saugat has led over 400 treks across Nepal's highest peaks.", initials: 'SP', tours: '400+', years: '15' },
+  { name: 'Shovit Regmi', role: 'Head of Operations', bio: 'With 12 years in sustainable tourism, Shovit ensures every journey runs flawlessly and responsibly.', initials: 'SR', tours: '200+', years: '12' },
+  { name: 'Suman Basnet', role: 'Senior Trek Guide', bio: "A certified mountaineer who speaks five languages and knows every trail like the back of his hand.", initials: 'SB', tours: '300+', years: '10' },
+  { name: 'Raman Achammi', role: 'Guest Experience Manager', bio: "Raman's passion is crafting personalised moments that turn first-time visitors into lifelong adventurers.", initials: 'RA', tours: '150+', years: '8' },
 ];
 
 const values = [

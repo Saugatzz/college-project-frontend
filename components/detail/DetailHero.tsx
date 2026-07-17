@@ -1,3 +1,5 @@
+'use client';
+import Image from 'next/image';
 import Link from 'next/link';
 import type { Tour } from '@/types/tour';
 
@@ -15,12 +17,14 @@ export default function DetailHero({ tour }: { tour: Tour }) {
       className="h-[360px] md:h-[520px] relative flex items-end px-4 md:px-12 pb-8 md:pb-12 overflow-hidden"
       aria-label={`${tour.name} hero image`}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
+      <Image
         src={tour.heroImage}
         alt={`${tour.name} — scenic landscape view`}
-        loading="eager"
-        className="absolute inset-0 w-full h-full object-cover"
+        fill
+        priority
+        quality={90}
+        sizes="100vw"
+        className="object-cover"
       />
       <div className="absolute inset-0 z-[1] bg-gradient-to-t from-[rgba(13,43,62,0.92)] via-[rgba(13,43,62,0.30)] to-transparent" />
 
