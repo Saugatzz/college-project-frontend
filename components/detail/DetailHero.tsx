@@ -22,7 +22,14 @@ export default function DetailHero({ tour }: { tour: Tour }) {
         alt={`${tour.name} — scenic landscape view`}
         fill
         priority
-        quality={90}
+        // quality was 90 — bumped to 100 (Next's max) since this is a
+        // full-bleed hero that can render at very large widths. Note:
+        // quality only controls how much Next compresses the source on
+        // the way out — it can't invent detail from a low-resolution
+        // source. If images still look soft after this, the fix is a
+        // higher-resolution source file (aim for >=1920px wide), not a
+        // higher quality number.
+        quality={100}
         sizes="100vw"
         className="object-cover"
       />

@@ -3,9 +3,11 @@
 import { usePathname } from 'next/navigation';
 import '@mantine/core/styles.css'; 
 import './globals.css';
+import '@mantine/notifications/styles.css';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { MantineProvider } from '@mantine/core';
+import { Notifications } from '@mantine/notifications';
 import WhatsAppWidget from '@/components/layout/WhatsappWidget';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -20,6 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {!isDashboard && !isAuthPage && <Header />}
         
         <MantineProvider>
+          <Notifications position="top-right" zIndex={9999} />
           {children}
         </MantineProvider>
         

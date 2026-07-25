@@ -28,10 +28,10 @@ export default function Header() {
 
   return (
     <header className={`fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 md:px-12 h-[68px] bg-[rgba(248,252,255,0.88)] backdrop-blur-lg border-b border-sky-mid/20 transition-shadow duration-300 ${scrolled ? 'shadow-[0_8px_40px_rgba(30,80,120,0.10)]' : ''}`}>
-      <Link href="/" aria-label="eBooking Nepal home" className="flex items-center no-underline select-none">
+      <Link href="/" aria-label="Sajilo Yatra Nepal home" className="flex items-center no-underline select-none">
         <Image
           src="/images/logos.png"
-          alt="eBooking Nepal"
+          alt="Sajilo Yatra Nepal"
           width={220}
           height={67}
           priority
@@ -42,7 +42,7 @@ export default function Header() {
       {/* Desktop nav */}
       <nav className="hidden md:flex gap-8 items-center">
         <Link href="/#search-section" className="text-sm font-normal text-black tracking-wide no-underline hover:text-sky-accent transition-colors">Destinations</Link>
-        <Link href="/#search-section" className="text-sm font-normal text-black tracking-wide no-underline hover:text-sky-accent transition-colors">Trek Types</Link>
+        <Link href="/?category=trek#search-section" className="text-sm font-normal text-black tracking-wide no-underline hover:text-sky-accent transition-colors">Trek Types</Link>
         <a href="/about" className="text-sm font-normal text-black tracking-wide no-underline hover:text-sky-accent transition-colors">About</a>
         <button
           type="button"
@@ -68,7 +68,7 @@ export default function Header() {
       {mobileOpen && (
         <div className="absolute top-[68px] left-0 right-0 bg-[rgba(248,252,255,0.97)] backdrop-blur-lg border-b border-sky-mid/20 shadow-lg md:hidden py-4 px-6 flex flex-col gap-4">
           <Link href="/#search-section" onClick={() => setMobileOpen(false)} className="text-sm font-normal text-stone tracking-wide hover:text-sky-accent transition-colors">Destinations</Link>
-          <Link href="/#search-section" onClick={() => setMobileOpen(false)} className="text-sm font-normal text-stone tracking-wide hover:text-sky-accent transition-colors">Trek Types</Link>
+          <Link href="/?category=trek#search-section" onClick={() => setMobileOpen(false)} className="text-sm font-normal text-stone tracking-wide hover:text-sky-accent transition-colors">Trek Types</Link>
           <a href="/about" onClick={() => setMobileOpen(false)} className="text-sm font-normal text-stone tracking-wide hover:text-sky-accent transition-colors">About</a>
           <button
             type="button"

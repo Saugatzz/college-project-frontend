@@ -5,7 +5,18 @@ import SearchSection  from '@/components/home/SearchSection';
 import ToursSection   from '@/components/home/ToursSection';
 
 export default function HomePageClient() {   // ← no more tours prop
-  const { filters, tours, loading, error, activeFilterCount, update, clear } = useFilters();
+ const {
+  filters,
+  tours,
+  page,
+  totalPages,
+  loading,
+  error,
+  activeFilterCount,
+  update,
+  clear,
+  goToPage,
+} = useFilters();
 
   const scrollToTours = () =>
     document.getElementById('tours-section')?.scrollIntoView({ behavior: 'smooth' });
@@ -39,15 +50,18 @@ export default function HomePageClient() {   // ← no more tours prop
 
       {/* Tours section */}
       <div className="bg-snow pt-4 sm:pt-12 md:pt-10">
-        <ToursSection
-          filters={filters}
-          tours={tours ?? []}            // ← was: filtered={filtered}
-          loading={loading}        // ← new
-          error={error}            // ← new
-          activeFilterCount={activeFilterCount}
-          onUpdate={update}
-          onClear={clear}
-        />
+       <ToursSection
+  filters={filters}
+  tours={tours}
+  loading={loading}
+  error={error}
+  activeFilterCount={activeFilterCount}
+  page={page}
+  totalPages={totalPages}
+  onUpdate={update}
+  onClear={clear}
+  onPageChange={goToPage}
+/>
       </div>
     </main>
   );

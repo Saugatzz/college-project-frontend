@@ -29,7 +29,7 @@ export default function HeroSection({ onExplore }: Props) {
       {/* Hero copy */}
       <div className="relative z-[2] max-w-2xl py-12 md:py-20">
         <div className="inline-flex items-center gap-2 bg-white/10 border border-white/30 text-white/90 text-xs font-medium tracking-widest uppercase px-4 py-1.5 rounded-full mb-7 backdrop-blur-sm w-fit">
-          ✦ eBooking Nepal&#39;s Premier Tour Curator
+          ✦ Sajilo Yatra Nepal&#39;s Premier Tour Curator
         </div>
         <h1 className="font-serif text-[clamp(2.4rem,5vw,4.4rem)] font-light leading-[1.12] text-white mb-5 tracking-tight">
           Discover the<br />

@@ -111,22 +111,33 @@ export default function TourTable() {
   };
 
   const handleToggleActive = async (pkg: Package) => {
-    setTogglingId(pkg.id);
-    try {
-      const updated = await apiToggleActive(pkg.id);
-      setData(prev => prev.map(p => p.id === updated.id ? updated : p));
-      notify(
-        'success',
-        updated.isActive ? 'Tour activated' : 'Tour deactivated',
-        `"${updated.name}" is now ${updated.isActive ? 'visible to customers' : 'hidden from listings'}.`,
-      );
-    } catch (err: any) {
-      const msg = err?.response?.data?.message ?? 'Could not update status.';
-      notify('error', 'Status update failed', msg);
-    } finally {
-      setTogglingId(null);
-    }
-  };
+  setTogglingId(pkg.id);
+  try {
+    const updated = await apiToggleActive(pkg.id);
+    setData(prev => prev.map(p => p.id === updated.id ? updated : p));
+    notify(
+      'success',
+      updated.isActive ? 'Tour activated' : 'Tour deactivated',
+      `"${updated.name}" is now ${updated.isActive ? 'visible to customers' : 'hidden from listings'}.`,
+    );
+
+    // Bust the public site's cached package data (tour detail pages,
+    // "You Might Also Like" recommendations, etc.) so the change is
+    // reflected immediately instead of within the next revalidate window.
+    fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/revalidate`, {
+      method: 'POST',
+      headers: { 'x-revalidate-secret': process.env.NEXT_PUBLIC_REVALIDATE_SECRET! },
+    }).catch(() => {
+      // Non-critical — the toggle itself already succeeded. Worst case,
+      // the public site just falls back to the normal 60s revalidate window.
+    });
+  } catch (err: any) {
+    const msg = err?.response?.data?.message ?? 'Could not update status.';
+    notify('error', 'Status update failed', msg);
+  } finally {
+    setTogglingId(null);
+  }
+};
 
   const handleSaved = (pkg: Package) => {
     const isEdit = data.some(p => p.id === pkg.id);

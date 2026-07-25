@@ -65,9 +65,9 @@ const contactInfo = [
       </svg>
     ),
     label: 'Email Us',
-    value: 'hello@ebookingnepal.com',
+    value: 'hello@Sajilo Yatranepal.com',
     sub: 'We reply within 24 hours',
-    href: 'mailto:hello@ebookingnepal.com',
+    href: 'mailto:hello@Sajilo Yatranepal.com',
     whatsapp: false,
   },
   {

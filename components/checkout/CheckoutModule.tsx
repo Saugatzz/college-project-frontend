@@ -41,8 +41,11 @@ import {
   IconFileTypePdf,
   IconX,
   IconAlertCircle,
+  IconBrandWhatsapp,
 } from "@tabler/icons-react";
 import api from "@/lib/api/api";
+
+const EMAIL_REGEX = /^\S+@\S+\.\S+$/;
 
 const diffMap: Record<string, string> = {
   easy: "Easy",
@@ -55,6 +58,7 @@ const diffColor: Record<string, string> = {
   hard: "orange",
 };
 type PayMethod = "Khalti" | "eSewa" | "Card";
+type ContactMethod = "email" | "whatsapp";
 
 function FakeQRCode({ label, color }: { label: string; color: string }) {
   const SIZE = 21;
@@ -201,6 +205,18 @@ export default function CheckoutClient() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // ── Email verification (proves the address actually exists / is
+  // reachable, rather than just matching a regex) ──────────────────────
+  const [emailForVerification, setEmailForVerification] = useState("");
+  const [codeSent, setCodeSent] = useState(false);
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [verificationToken, setVerificationToken] = useState<string | null>(null);
+  const [verificationCode, setVerificationCode] = useState("");
+  const [sendingCode, setSendingCode] = useState(false);
+  const [verifyingCode, setVerifyingCode] = useState(false);
+  const [verifyError, setVerifyError] = useState("");
+  const [resendCooldown, setResendCooldown] = useState(0);
+
   const form = useForm({
     initialValues: {
       firstName: "",
@@ -213,6 +229,8 @@ export default function CheckoutClient() {
       cardNumber: "",
       expiry: "",
       cvv: "",
+      contactMethod: "email" as ContactMethod,
+      whatsappNumber: "",
     },
     validate: {
       firstName: (v) =>
@@ -220,7 +238,7 @@ export default function CheckoutClient() {
       lastName: (v) =>
         v.trim().length < 2 ? "Last name must be at least 2 characters" : null,
       email: (v) =>
-        /^\S+@\S+\.\S+$/.test(v) ? null : "Please enter a valid email address",
+        EMAIL_REGEX.test(v) ? null : "Please enter a valid email address",
       phone: (v) =>
         /^\+?[\d\s\-().]{7,20}$/.test(v.trim())
           ? null
@@ -229,6 +247,11 @@ export default function CheckoutClient() {
         v.trim().length < 2 ? "Please enter your country of residence" : null,
       travelers: (v) =>
         v >= 1 && v <= 8 ? null : "Please select 1–8 travelers",
+      whatsappNumber: (v, values) =>
+        values.contactMethod === "whatsapp" &&
+        !/^\+?[\d\s\-().]{7,20}$/.test((v ?? "").trim())
+          ? "Please enter a valid WhatsApp number"
+          : null,
       cardNumber: (v) => {
         if (step !== 2 || payMethod !== "Card") return null;
         return /^\d{16}$/.test(v.replace(/\s/g, ""))
@@ -246,6 +269,74 @@ export default function CheckoutClient() {
     },
     validateInputOnBlur: true,
   });
+
+  // If the user edits the email after it was verified (or while a code is
+  // pending), the old verification no longer proves anything about the new
+  // address — reset so they have to verify the new one.
+  useEffect(() => {
+    if (emailForVerification && form.values.email.trim() !== emailForVerification) {
+      setEmailVerified(false);
+      setVerificationToken(null);
+      setCodeSent(false);
+      setVerificationCode("");
+      setVerifyError("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.values.email]);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const t = setTimeout(() => setResendCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendCooldown]);
+
+  const handleSendCode = async () => {
+    const email = form.values.email.trim();
+    if (!EMAIL_REGEX.test(email)) {
+      form.setFieldError("email", "Please enter a valid email address first");
+      return;
+    }
+    setSendingCode(true);
+    setVerifyError("");
+    try {
+      await api.post("/bookings/email/send-code", { email });
+      setEmailForVerification(email);
+      setCodeSent(true);
+      setEmailVerified(false);
+      setVerificationToken(null);
+      setVerificationCode("");
+      setResendCooldown(60);
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.message ??
+        "Could not send a verification code. Please check the address and try again.";
+      setVerifyError(typeof msg === "string" ? msg : JSON.stringify(msg));
+    } finally {
+      setSendingCode(false);
+    }
+  };
+
+  const handleVerifyCode = async () => {
+    if (verificationCode.trim().length !== 6) {
+      setVerifyError("Enter the 6-digit code from your email.");
+      return;
+    }
+    setVerifyingCode(true);
+    setVerifyError("");
+    try {
+      const { data } = await api.post("/bookings/email/verify-code", {
+        email: form.values.email.trim(),
+        code: verificationCode.trim(),
+      });
+      setEmailVerified(true);
+      setVerificationToken(data.token);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message ?? "That code didn't match. Please try again.";
+      setVerifyError(typeof msg === "string" ? msg : JSON.stringify(msg));
+    } finally {
+      setVerifyingCode(false);
+    }
+  };
 
   const addonTotal = useMemo(() => {
     if (!tour) return 0;
@@ -269,8 +360,15 @@ export default function CheckoutClient() {
       "phone",
       "country",
       "travelers",
+      ...(form.values.contactMethod === "whatsapp" ? (["whatsappNumber"] as const) : []),
     ] as const;
-    if (!fields.some((f) => result.errors[f])) setStep(1);
+    if (fields.some((f) => result.errors[f])) return;
+
+    if (!emailVerified) {
+      setVerifyError("Please verify your email address before continuing.");
+      return;
+    }
+    setStep(1);
   };
 
   const handleStep1 = () => {
@@ -284,6 +382,16 @@ export default function CheckoutClient() {
 
   // Opens confirmation modal after validation
   const handlePayment = () => {
+    // Defensive re-check: the step indicator lets users jump back to a
+    // completed step and edit fields without re-running the full
+    // form.validate() flow, so email could be invalid/unverified here even
+    // though Step 0 was "passed" once already.
+    if (!EMAIL_REGEX.test(form.values.email.trim()) || !emailVerified) {
+      setSubmitError("Please verify a valid email address before confirming your booking.");
+      setStep(0);
+      return;
+    }
+
     if (payMethod === "Card") {
       const result = form.validate();
       if (["cardNumber", "expiry", "cvv"].some((f) => result.errors[f])) return;
@@ -302,10 +410,47 @@ export default function CheckoutClient() {
 
   // Actual submission — called from inside the confirmation modal
   const doPayment = async () => {
+    // Final guard: never let an unverified/invalid email reach the
+    // booking API, even if this is somehow called without going through
+    // handlePayment first.
+    if (!EMAIL_REGEX.test(form.values.email.trim()) || !emailVerified || !verificationToken) {
+      setConfirmOpen(false);
+      setSubmitError("Please verify a valid email address before confirming your booking.");
+      setStep(0);
+      return;
+    }
+
     setConfirmOpen(false);
     setSubmitting(true);
+    setSubmitError("");
 
     try {
+      let cardPaymentToken: string | undefined;
+
+      // Card gets the same "prove payment happened" treatment Khalti/eSewa
+      // get via receipt upload: attempt a (test-mode) charge and require
+      // it to succeed, obtaining a signed token as proof. The token — not
+      // any raw card fields — is what the booking API trusts.
+      if (payMethod === "Card") {
+        try {
+          const { data: charge } = await api.post("/payments/card/charge", {
+            cardNumber: form.values.cardNumber.replace(/\s/g, ""),
+            expiry: form.values.expiry,
+            cvv: form.values.cvv,
+            amount: grandTotal,
+          });
+          cardPaymentToken = charge.token;
+        } catch (err: any) {
+          const msg =
+            err?.response?.data?.message ??
+            "Card payment failed. Please check your card details and try again.";
+          setSubmitError(typeof msg === "string" ? msg : JSON.stringify(msg));
+          setSubmitting(false);
+          setStep(2);
+          return;
+        }
+      }
+
       const selectedAddons = selectedAddonIndices
         .map((i) => tour?.addons[i])
         .filter(Boolean)
@@ -325,6 +470,13 @@ export default function CheckoutClient() {
         addonsTotal: addonTotal,
         totalAmount: grandTotal,
         selectedAddons,
+        contactMethod: form.values.contactMethod,
+        contactValue:
+          form.values.contactMethod === "whatsapp"
+            ? form.values.whatsappNumber
+            : form.values.email,
+        emailVerificationToken: verificationToken,
+        cardPaymentToken,
       });
 
       if ((payMethod === "Khalti" || payMethod === "eSewa") && txFile) {
@@ -334,6 +486,12 @@ export default function CheckoutClient() {
           headers: { "Content-Type": "multipart/form-data" },
         });
       }
+
+      // Card details never need to leave this device beyond the charge
+      // call above — clear them from state now that they're no longer
+      // needed.
+      form.setFieldValue("cardNumber", "");
+      form.setFieldValue("cvv", "");
 
       try {
         sessionStorage.setItem(
@@ -513,6 +671,12 @@ export default function CheckoutClient() {
                     `${form.values.firstName} ${form.values.lastName}`,
                   ],
                   ["Email", form.values.email],
+                  [
+                    "Contact via",
+                    form.values.contactMethod === "whatsapp"
+                      ? `WhatsApp (${form.values.whatsappNumber})`
+                      : "Email",
+                  ],
                   [
                     "Travelers",
                     `${form.values.travelers} ${form.values.travelers === 1 ? "person" : "people"}`,
@@ -807,6 +971,86 @@ export default function CheckoutClient() {
                     styles={inputStyles}
                   />
                 </Group>
+
+                {/* ── Email verification ── */}
+                <Box
+                  p="md"
+                  style={{
+                    background: emailVerified
+                      ? "linear-gradient(135deg, #f0fff4, #e8faf0)"
+                      : "linear-gradient(135deg, #f8fafc, #f1f5f9)",
+                    border: emailVerified
+                      ? "1.5px solid rgba(39,174,96,0.35)"
+                      : "1.5px solid rgba(46,134,193,0.15)",
+                    borderRadius: rem(14),
+                  }}
+                >
+                  <Group justify="space-between" align="center" wrap="nowrap">
+                    <Box style={{ flex: 1 }}>
+                      {emailVerified ? (
+                        <Group gap={6}>
+                          <IconCheck size={16} color="#10b981" />
+                          <Text fz={13} c="teal.7" fw={600}>
+                            Email verified
+                          </Text>
+                        </Group>
+                      ) : (
+                        <Text fz={12} c="dimmed" fw={300}>
+                          {codeSent
+                            ? `We sent a 6-digit code to ${emailForVerification}. Enter it below to confirm this email exists.`
+                            : "We'll send a code to confirm this email address actually exists before you can book."}
+                        </Text>
+                      )}
+                    </Box>
+                    {!emailVerified && (
+                      <Button
+                        variant="light"
+                        size="xs"
+                        radius="xl"
+                        loading={sendingCode}
+                        disabled={resendCooldown > 0}
+                        onClick={handleSendCode}
+                        style={{ flexShrink: 0 }}
+                      >
+                        {codeSent
+                          ? resendCooldown > 0
+                            ? `Resend in ${resendCooldown}s`
+                            : "Resend code"
+                          : "Send code"}
+                      </Button>
+                    )}
+                  </Group>
+
+                  {codeSent && !emailVerified && (
+                    <Group gap={8} mt={10} align="flex-end">
+                      <TextInput
+                        placeholder="6-digit code"
+                        maxLength={6}
+                        value={verificationCode}
+                        onChange={(e) =>
+                          setVerificationCode(e.target.value.replace(/\D/g, "").slice(0, 6))
+                        }
+                        style={{ flex: 1 }}
+                        styles={inputStyles}
+                      />
+                      <Button
+                        radius="xl"
+                        size="sm"
+                        loading={verifyingCode}
+                        onClick={handleVerifyCode}
+                        style={{ background: "linear-gradient(135deg, #2e86c1, #0f4c81)" }}
+                      >
+                        Verify
+                      </Button>
+                    </Group>
+                  )}
+                  {verifyError && (
+                    <Text fz={12} c="red.6" mt={8}>
+                      {verifyError}
+                    </Text>
+                  )}
+                </Box>
+
                 <Group grow gap="md">
                   <TextInput
                     label="Country of Residence"
@@ -824,6 +1068,63 @@ export default function CheckoutClient() {
                     styles={inputStyles}
                   />
                 </Group>
+
+                {/* ── Preferred contact method ── */}
+                <Box>
+                  <Text
+                    fz={11}
+                    fw={700}
+                    c="gray.6"
+                    mb={8}
+                    style={{ letterSpacing: "0.1em", textTransform: "uppercase" }}
+                  >
+                    How should we contact you after booking?
+                  </Text>
+                  <Group grow gap="sm">
+                    {(["email", "whatsapp"] as const).map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => form.setFieldValue("contactMethod", m)}
+                        style={{
+                          border:
+                            form.values.contactMethod === m
+                              ? "2px solid #2e86c1"
+                              : "1.5px solid rgba(46,134,193,0.2)",
+                          borderRadius: rem(14),
+                          padding: `${rem(12)} ${rem(8)}`,
+                          fontSize: rem(13),
+                          fontWeight: 600,
+                          color: form.values.contactMethod === m ? "#1a6ea8" : "#6b7c8d",
+                          background:
+                            form.values.contactMethod === m
+                              ? "linear-gradient(135deg, #f0f8ff, #e0f0fa)"
+                              : "transparent",
+                          cursor: "pointer",
+                          transition: "all 0.2s ease",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: rem(8),
+                        }}
+                      >
+                        {m === "email" ? <IconMail size={16} /> : <IconBrandWhatsapp size={16} />}
+                        {m === "email" ? "Email" : "WhatsApp"}
+                      </button>
+                    ))}
+                  </Group>
+                  {form.values.contactMethod === "whatsapp" && (
+                    <TextInput
+                      mt="sm"
+                      label="WhatsApp Number"
+                      placeholder="+1 234 567 8900"
+                      leftSection={<IconBrandWhatsapp size={15} />}
+                      {...form.getInputProps("whatsappNumber")}
+                      styles={inputStyles}
+                    />
+                  )}
+                </Box>
+
                 <Textarea
                   label={
                     <Group gap={6}>
@@ -923,6 +1224,12 @@ export default function CheckoutClient() {
                       ["Phone", form.values.phone],
                       ["Country", form.values.country],
                       ["Travelers", String(form.values.travelers)],
+                      [
+                        "Contact via",
+                        form.values.contactMethod === "whatsapp"
+                          ? `WhatsApp (${form.values.whatsappNumber})`
+                          : "Email",
+                      ],
                     ] as [string, string][]
                   ).map(([k, v]) => (
                     <Group key={k} justify="space-between" wrap="nowrap">
@@ -1178,6 +1485,9 @@ export default function CheckoutClient() {
                       styles={inputStyles}
                     />
                   </Group>
+                  <Text fz={11} c="dimmed" fw={300}>
+                    Test mode — try 4242 4242 4242 4242 (approved) or 4000 0000 0000 0002 (declined).
+                  </Text>
                 </Stack>
               )}
 
@@ -1590,4 +1900,3 @@ export default function CheckoutClient() {
     </>
   );
 }
-

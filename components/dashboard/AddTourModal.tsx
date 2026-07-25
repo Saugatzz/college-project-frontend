@@ -5,6 +5,7 @@ import {
   Button, Group, Tabs, ActionIcon, Text, Divider, rem,
 } from '@mantine/core';
 import { IconPlus, IconTrash } from '@tabler/icons-react';
+import { notifications } from '@mantine/notifications';
 import {
   apiCreate, apiUpdate,
   type Package, type TourItinerary, type TourHighlight,
@@ -26,6 +27,13 @@ const EMPTY_FIELDS = {
 
 type FieldErrors = Partial<Record<keyof typeof EMPTY_FIELDS, string>>;
 
+const FIELD_LABELS: Record<keyof typeof EMPTY_FIELDS, string> = {
+  name: 'Tour Name', description: 'Description', price: 'Price',
+  days: 'Duration (days)', location: 'Location', difficulty: 'Difficulty',
+  category: 'Category', badge: 'Tour tags', tagline: 'Tagline',
+  image: 'Image URL', reviewCount: 'Review Count', rating: 'Rating',
+};
+
 function validateFields(fields: typeof EMPTY_FIELDS): FieldErrors {
   const errors: FieldErrors = {};
   if (!fields.name.trim())                errors.name        = 'Tour name is required';
@@ -35,6 +43,7 @@ function validateFields(fields: typeof EMPTY_FIELDS): FieldErrors {
   if (!fields.category)                   errors.category    = 'Category is required';
   if (!fields.price || fields.price <= 0) errors.price       = 'Price must be greater than 0';
   if (!fields.days  || fields.days  < 1)  errors.days        = 'Duration must be at least 1 day';
+  if (!fields.image.trim())               errors.image       = 'Image URL is required';
   return errors;
 }
 
@@ -43,6 +52,7 @@ export default function AddTourModal({ opened, onClose, onSaved, editData }: Pro
   const [fields,  setFields]  = useState({ ...EMPTY_FIELDS });
   const [errors,  setErrors]  = useState<FieldErrors>({});
   const [touched, setTouched] = useState<Partial<Record<keyof typeof EMPTY_FIELDS, boolean>>>({});
+  const [submitAttempted, setSubmitAttempted] = useState(false);
 
   const [itineraries, setItineraries] = useState<TourItinerary[]>([]);
   const [highlights,  setHighlights]  = useState<TourHighlight[]>([]);
@@ -55,6 +65,7 @@ export default function AddTourModal({ opened, onClose, onSaved, editData }: Pro
     if (!opened) return;
     setErrors({});
     setTouched({});
+    setSubmitAttempted(false);
 
     if (editData) {
       setFields({
@@ -98,6 +109,9 @@ export default function AddTourModal({ opened, onClose, onSaved, editData }: Pro
   const err = (key: keyof typeof EMPTY_FIELDS) =>
     touched[key] ? errors[key] : undefined;
 
+  const itineraryError = itineraries.length === 0 ? 'At least one itinerary day is required' : undefined;
+  const imagesError    = images.length      === 0 ? 'At least one image is required'          : undefined;
+
   // ── Itinerary helpers ────────────────────────────────────────────────────
   const addItin      = () => setItineraries(p => [...p, { dayNumber: p.length + 1, title: '', description: '' }]);
   const updItin      = (i: number, k: keyof TourItinerary, v: string | number) => setItineraries(p => p.map((x, idx) => idx === i ? { ...x, [k]: v } : x));
@@ -128,19 +142,52 @@ export default function AddTourModal({ opened, onClose, onSaved, editData }: Pro
     const allTouched: Partial<Record<keyof typeof EMPTY_FIELDS, boolean>> = {
       name: true, description: true, location: true,
       difficulty: true, category: true, price: true, days: true,
+      image: true,
     };
     setTouched(allTouched);
+    setSubmitAttempted(true);
 
     const newErrors = validateFields(fields);
     setErrors(newErrors);
-    if (Object.keys(newErrors).length > 0) return;
+
+    const missing: string[] = Object.keys(newErrors).map(
+      key => FIELD_LABELS[key as keyof typeof EMPTY_FIELDS]
+    );
+    if (itineraryError) missing.push('Itinerary (at least 1 day)');
+    if (imagesError)    missing.push('Images (at least 1 image)');
+
+    if (missing.length > 0) {
+      notifications.show({
+        color: 'red',
+        title: 'Missing required fields',
+        message: (
+          <ul style={{ margin: 0, paddingLeft: 18 }}>
+            {missing.map(label => (
+              <li key={label}>{label}</li>
+            ))}
+          </ul>
+        ),
+      });
+      return;
+    }
 
     setSaving(true);
     try {
       const payload = { ...fields, itineraries, highlights, inclusions, addons, images };
       const result  = editData ? await apiUpdate(editData.id, payload) : await apiCreate(payload);
       onSaved(result);
+      notifications.show({
+        color: 'green',
+        title: editData ? 'Tour updated' : 'Tour created',
+        message: editData ? 'Your changes have been saved.' : 'The new tour has been added.',
+      });
       onClose();
+    } catch (e) {
+      notifications.show({
+        color: 'red',
+        title: 'Something went wrong',
+        message: 'Could not save the tour. Please try again.',
+      });
     } finally {
       setSaving(false);
     }
@@ -186,11 +233,21 @@ export default function AddTourModal({ opened, onClose, onSaved, editData }: Pro
               <Text span fz={10} c="red" ml={4}>●</Text>
             ) : null}
           </Tabs.Tab>
-          <Tabs.Tab value="itinerary">Itinerary {itineraries.length > 0 && `(${itineraries.length})`}</Tabs.Tab>
+          <Tabs.Tab value="itinerary">
+            Itinerary {itineraries.length > 0 && `(${itineraries.length})`}
+            {submitAttempted && itineraryError ? (
+              <Text span fz={10} c="red" ml={4}>●</Text>
+            ) : null}
+          </Tabs.Tab>
           <Tabs.Tab value="highlights">Highlights {highlights.length > 0 && `(${highlights.length})`}</Tabs.Tab>
           <Tabs.Tab value="inclusions">Inclusions {inclusions.length > 0 && `(${inclusions.length})`}</Tabs.Tab>
           <Tabs.Tab value="addons">Add-ons {addons.length > 0 && `(${addons.length})`}</Tabs.Tab>
-          <Tabs.Tab value="images">Images {images.length > 0 && `(${images.length})`}</Tabs.Tab>
+          <Tabs.Tab value="images">
+            Images {images.length > 0 && `(${images.length})`}
+            {submitAttempted && imagesError ? (
+              <Text span fz={10} c="red" ml={4}>●</Text>
+            ) : null}
+          </Tabs.Tab>
         </Tabs.List>
 
         {/* ── Basics ────────────────────────────────────────────────────── */}
@@ -259,8 +316,10 @@ export default function AddTourModal({ opened, onClose, onSaved, editData }: Pro
             </div>
 
             <TextInput
-              label="Image URL" value={fields.image} styles={inputSx}
+              label="Image URL *" value={fields.image} styles={inputSx}
+              error={err('image')}
               onChange={e => set('image')(e.target.value)}
+              onBlur={() => setTouched(t => ({ ...t, image: true }))}
             />
 
             <div className="grid grid-cols-2 gap-3">
@@ -296,6 +355,9 @@ export default function AddTourModal({ opened, onClose, onSaved, editData }: Pro
               </div>
             ))}
             <AddBtn onClick={addItin} label="Add Day" />
+            {submitAttempted && itineraryError ? (
+              <Text fz={12} c="red">{itineraryError}</Text>
+            ) : null}
           </div>
         </Tabs.Panel>
 
@@ -385,6 +447,9 @@ export default function AddTourModal({ opened, onClose, onSaved, editData }: Pro
               </div>
             ))}
             <AddBtn onClick={addImage} label="Add Image" />
+            {submitAttempted && imagesError ? (
+              <Text fz={12} c="red">{imagesError}</Text>
+            ) : null}
           </div>
         </Tabs.Panel>
       </Tabs>

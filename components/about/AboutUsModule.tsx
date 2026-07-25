@@ -96,7 +96,7 @@ export default function AboutPage() {
               Born from a Love of<br /><em className="italic text-gold">the Mountains</em>
             </h1>
             <p className="text-[1rem] text-white/70 leading-[1.8] font-light max-w-[480px]">
-              eBooking Nepal began in 2015 with a single promise: to share the magic of the Himalayas with the world, without compromising on authenticity or the environment.
+              Sajilo Yatra Nepal began in 2015 with a single promise: to share the magic of the Himalayas with the world, without compromising on authenticity or the environment.
             </p>
           </div>
         </section>

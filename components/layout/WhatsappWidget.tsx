@@ -114,7 +114,7 @@ export default function WhatsAppWidget() {
                   <WhatsAppIcon size={22} color="white" />
                 </div>
                 <div>
-                  <div style={{ color: "white", fontWeight: 700, fontSize: 14, lineHeight: 1.2 }}>eBooking Nepal</div>
+                  <div style={{ color: "white", fontWeight: 700, fontSize: 14, lineHeight: 1.2 }}>SSS</div>
                   <div style={{ color: "rgba(255,255,255,0.75)", fontSize: 11, marginTop: 2 }}>Typically replies instantly</div>
                 </div>
               </div>

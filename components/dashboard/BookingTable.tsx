@@ -8,6 +8,7 @@ import {
   IconRefresh, IconAlertCircle, IconX, IconUser, IconMail, IconPhone,
   IconWorld, IconUsers, IconCreditCard, IconCalendar, IconMountain,
   IconCheck, IconClock, IconNotes, IconPackage, IconFileTypePdf,
+  IconBrandWhatsapp,
 } from "@tabler/icons-react";
 import { ColumnDef } from "@tanstack/react-table";
 import api from "@/lib/api/api";
@@ -16,6 +17,7 @@ import AppNotification, { useNotification } from "@/components/common/AppNotific
 
 type BookingStatus = "pending" | "confirmed" | "cancelled";
 type PaymentMethod = "Khalti" | "eSewa" | "Card";
+type ContactMethod = "email" | "whatsapp";
 
 interface BookingAddon { id: number; name: string; price: number }
 
@@ -36,6 +38,10 @@ interface Booking {
   status: BookingStatus;
   selectedAddons: BookingAddon[];
   receiptPath?: string;
+  cardTransactionId?: string;
+  cardLast4?: string;
+  contactMethod?: ContactMethod;
+  contactValue?: string;
   tour?: {
     id?: number;
     title?: string;
@@ -58,6 +64,9 @@ const STATUS_CONFIG: Record<BookingStatus, { color: string; label: string; bg: s
 const PAY_ICON: Record<PaymentMethod, string> = {
   Khalti: "💜", eSewa: "💚", Card: "💳",
 };
+
+// Statuses that can no longer be changed once set.
+const LOCKED_STATUSES: BookingStatus[] = ["confirmed", "cancelled"];
 
 function DetailField({ icon, label, value }: { icon: React.ReactNode; label: string; value: React.ReactNode }) {
   return (
@@ -96,6 +105,9 @@ function BookingDrawer({ booking, opened, onClose, onStatusChange, onNotify }: {
   const tourDuration = booking.tour?.durationDays
     ? `${booking.tour.durationDays} Days`
     : (booking.tour?.duration ?? "—");
+  const contactMethod = booking.contactMethod ?? "email";
+  const contactValue  = booking.contactValue ?? booking.email;
+  const isLocked = LOCKED_STATUSES.includes(booking.status);
 
   const handleSaveStatus = async () => {
     setSaving(true);
@@ -190,6 +202,18 @@ function BookingDrawer({ booking, opened, onClose, onStatusChange, onNotify }: {
             <DetailField icon={<IconMail size={15} />}  label="Email"     value={booking.email} />
             <DetailField icon={<IconPhone size={15} />} label="Phone"     value={booking.phone} />
             <DetailField icon={<IconWorld size={15} />} label="Country"   value={booking.country} />
+            <DetailField
+              icon={contactMethod === "whatsapp" ? <IconBrandWhatsapp size={15} /> : <IconMail size={15} />}
+              label="Preferred Contact"
+              value={
+                <Group gap={6}>
+                  <Text span fz={13} fw={500}>
+                    {contactMethod === "whatsapp" ? "WhatsApp" : "Email"}
+                  </Text>
+                  <Text span fz={12} c="dimmed">· {contactValue}</Text>
+                </Group>
+              }
+            />
           </Stack>
         </Paper>
 
@@ -216,6 +240,7 @@ function BookingDrawer({ booking, opened, onClose, onStatusChange, onNotify }: {
                 ${Number(booking.totalAmount).toLocaleString()}
               </Text>
             </Group>
+
             {receiptUrl && (
               <>
                 <Divider color="#eef2f7" />
@@ -235,6 +260,27 @@ function BookingDrawer({ booking, opened, onClose, onStatusChange, onNotify }: {
                 <Group gap={6}>
                   <IconAlertCircle size={13} color="#f59e0b" />
                   <Text fz={11} c="yellow.7" fw={500}>Receipt not uploaded yet</Text>
+                </Group>
+              </>
+            )}
+
+            {booking.paymentMethod === "Card" && booking.cardTransactionId && (
+              <>
+                <Divider color="#eef2f7" />
+                <Group justify="space-between" align="center">
+                  <Text fz={12} c="dimmed">Card charged</Text>
+                  <Text fz={11} ff="monospace" c="dark.6">
+                    •••• {booking.cardLast4} · {booking.cardTransactionId}
+                  </Text>
+                </Group>
+              </>
+            )}
+            {booking.paymentMethod === "Card" && !booking.cardTransactionId && (
+              <>
+                <Divider color="#eef2f7" />
+                <Group gap={6}>
+                  <IconAlertCircle size={13} color="#f59e0b" />
+                  <Text fz={11} c="yellow.7" fw={500}>No charge on record for this booking</Text>
                 </Group>
               </>
             )}
@@ -278,30 +324,39 @@ function BookingDrawer({ booking, opened, onClose, onStatusChange, onNotify }: {
           </Notification>
         )}
         <Text fz={11} fw={700} c="gray.6" mb={8} style={{ letterSpacing: "0.1em", textTransform: "uppercase" }}>Update Status</Text>
-        <Group gap={10}>
-          <Select
-            value={localStatus}
-            onChange={(v) => v && setLocalStatus(v as BookingStatus)}
-            data={[
-              { value: "pending",   label: "🟡 Pending"   },
-              { value: "confirmed", label: "🟢 Confirmed" },
-              { value: "cancelled", label: "🔴 Cancelled" },
-            ]}
-            style={{ flex: 1 }}
-            styles={{ input: { borderRadius: rem(10), border: "1.5px solid #dbeafe", fontSize: rem(13), fontWeight: 500 } }}
-          />
-          <Button
-            onClick={handleSaveStatus} loading={saving}
-            disabled={localStatus === booking.status}
-            radius="xl"
-            style={{
-              background: localStatus !== booking.status ? "linear-gradient(135deg, #2e86c1, #0f4c81)" : undefined,
-              height: rem(36), fontSize: rem(13), fontWeight: 500,
-            }}
-          >
-            Save
-          </Button>
-        </Group>
+        {isLocked ? (
+          <Group gap={8} p="xs" style={{ background: booking.status === "cancelled" ? "#fef2f2" : "#f0fdf4", borderRadius: rem(10) }}>
+            <IconAlertCircle size={14} color={booking.status === "cancelled" ? "#ef4444" : "#10b981"} />
+            <Text fz={12} c={booking.status === "cancelled" ? "red.6" : "teal.6"} fw={500}>
+              This booking is {booking.status} and can no longer be updated.
+            </Text>
+          </Group>
+        ) : (
+          <Group gap={10}>
+            <Select
+              value={localStatus}
+              onChange={(v) => v && setLocalStatus(v as BookingStatus)}
+              data={[
+                { value: "pending",   label: "🟡 Pending"   },
+                { value: "confirmed", label: "🟢 Confirmed" },
+                { value: "cancelled", label: "🔴 Cancelled" },
+              ]}
+              style={{ flex: 1 }}
+              styles={{ input: { borderRadius: rem(10), border: "1.5px solid #dbeafe", fontSize: rem(13), fontWeight: 500 } }}
+            />
+            <Button
+              onClick={handleSaveStatus} loading={saving}
+              disabled={localStatus === booking.status}
+              radius="xl"
+              style={{
+                background: localStatus !== booking.status ? "linear-gradient(135deg, #2e86c1, #0f4c81)" : undefined,
+                height: rem(36), fontSize: rem(13), fontWeight: 500,
+              }}
+            >
+              Save
+            </Button>
+          </Group>
+        )}
       </Box>
     </Drawer>
   );
@@ -344,6 +399,7 @@ export default function BookingTable() {
   }, []);
 
   const handleInlineStatusChange = async (b: Booking, newStatus: BookingStatus) => {
+    if (LOCKED_STATUSES.includes(b.status)) return; // guarded in UI too, but no-op just in case
     try {
       await api.patch(`/bookings/${b.id}/status`, { status: newStatus });
       handleStatusChange(b.id, newStatus);
@@ -360,9 +416,10 @@ export default function BookingTable() {
 
   const pendingCount   = bookings.filter(b => b.status === "pending").length;
   const confirmedCount = bookings.filter(b => b.status === "confirmed").length;
-const totalRevenue = bookings
-  .filter(b => b.status !== "cancelled")
-  .reduce((s, b) => s + Number(b.totalAmount), 0);
+  const totalRevenue = bookings
+    .filter(b => b.status !== "cancelled")
+    .reduce((s, b) => s + Number(b.totalAmount), 0);
+
   const columns: ColumnDef<Booking, any>[] = [
     {
       id: "id", accessorKey: "id", header: "#", size: 72,
@@ -401,6 +458,28 @@ const totalRevenue = bookings
             <Text fz={13} c="dark.6" truncate>{name ?? "—"}</Text>
             {duration && <Text fz={11} c="dimmed">{duration}</Text>}
           </>
+        );
+      },
+    },
+    {
+      id: "contact", header: "Contact Preference", size: 170, enableSorting: false,
+      accessorFn: (row) => row.contactMethod ?? "email",
+      cell: ({ row }) => {
+        const b = row.original;
+        const method = b.contactMethod ?? "email";
+        const value = b.contactValue ?? b.email;
+        return (
+          <Group gap={6} wrap="nowrap">
+            {method === "whatsapp"
+              ? <IconBrandWhatsapp size={14} color="#25D366" />
+              : <IconMail size={14} color="#2e86c1" />}
+            <Box style={{ overflow: "hidden" }}>
+              <Text fz={12} fw={600} c="dark.6">
+                {method === "whatsapp" ? "WhatsApp" : "Email"}
+              </Text>
+              <Text fz={11} c="dimmed" truncate>{value}</Text>
+            </Box>
+          </Group>
         );
       },
     },
@@ -444,7 +523,22 @@ const totalRevenue = bookings
       id: "receipt", header: "Receipt", size: 90, enableSorting: false,
       cell: ({ row }) => {
         const b = row.original;
-        if (b.paymentMethod === "Card") return <Text fz={11} c="dimmed">—</Text>;
+        if (b.paymentMethod === "Card") {
+          if (!b.cardTransactionId) {
+            return (
+              <Box style={{ display: "flex", alignItems: "center", gap: rem(4) }}>
+                <IconAlertCircle size={12} color="#f59e0b" />
+                <Text fz={11} c="yellow.6" fw={500}>No charge</Text>
+              </Box>
+            );
+          }
+          return (
+            <Group gap={4} wrap="nowrap">
+              <IconCheck size={12} color="#10b981" />
+              <Text fz={11} c="dimmed" ff="monospace">•••• {b.cardLast4}</Text>
+            </Group>
+          );
+        }
         if (!b.receiptPath) return (
           <Box style={{ display: "flex", alignItems: "center", gap: rem(4) }}>
             <IconAlertCircle size={12} color="#f59e0b" />
@@ -466,15 +560,21 @@ const totalRevenue = bookings
       cell: ({ row }) => {
         const b  = row.original;
         const sc = STATUS_CONFIG[b.status] ?? STATUS_CONFIG.pending;
+        const isLocked = LOCKED_STATUSES.includes(b.status);
         return (
           <Box onClick={(e) => e.stopPropagation()}>
             <select
               value={b.status}
+              disabled={isLocked}
+              title={isLocked ? `${sc.label} bookings can no longer be updated` : undefined}
               onChange={(e) => handleInlineStatusChange(b, e.target.value as BookingStatus)}
               style={{
                 border: `1.5px solid ${sc.dot}33`, borderRadius: rem(20),
                 padding: `${rem(3)} ${rem(10)}`, fontSize: rem(11), fontWeight: 700,
-                color: sc.dot, background: sc.bg, cursor: "pointer", outline: "none",
+                color: sc.dot, background: sc.bg,
+                cursor: isLocked ? "not-allowed" : "pointer",
+                opacity: isLocked ? 0.7 : 1,
+                outline: "none",
                 appearance: "none", WebkitAppearance: "none", paddingRight: rem(22),
                 backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23${sc.dot.slice(1)}'/%3E%3C/svg%3E")`,
                 backgroundRepeat: "no-repeat", backgroundPosition: `right ${rem(7)} center`,

@@ -164,7 +164,7 @@ export default function FilterSidebar({
         <CheckItem id="chk-family" label="Family friendly"
           checked={filters.familyOnly ?? false}
           onChange={v => onUpdate({ familyOnly: v })} />
-        <CheckItem id="chk-new" label="New on eBooking Nepal"
+        <CheckItem id="chk-new" label="New on Sajilo Yatra"
           checked={filters.newOnly ?? false}
           onChange={v => onUpdate({ newOnly: v })} />
       </fieldset>

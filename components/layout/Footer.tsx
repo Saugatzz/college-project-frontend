@@ -12,6 +12,14 @@ interface Package {
   location: string;
 }
 
+interface PaginatedPackages {
+  data: Package[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
 const company = [
   { label: 'About Us', href: '/about' },
   { label: 'Contact Us', href: '/contact' },
@@ -39,15 +47,23 @@ const MAX_DESTINATIONS = 6;
 
 export default function Footer() {
   const [destinations, setDestinations] = useState<Package[]>([]);
+  const [totalTours,   setTotalTours]   = useState(0);
 
   useEffect(() => {
-    api.get<Package[]>('/packages')
-      .then(({ data }) => setDestinations(data))
+    // Footer just needs a handful of names for links — fetch exactly
+    // MAX_DESTINATIONS from page 1, and rely on the response's `total`
+    // for the "View all N tours" count rather than destinations.length,
+    // since destinations.length is now just this one page's size.
+    api.get<PaginatedPackages>('/packages', { params: { page: 1, limit: MAX_DESTINATIONS } })
+      .then(({ data }) => {
+        setDestinations(data.data);
+        setTotalTours(data.total);
+      })
       .catch(() => {});
   }, []);
 
-  const visibleDestinations = destinations.slice(0, MAX_DESTINATIONS);
-  const hasMore = destinations.length > MAX_DESTINATIONS;
+  const visibleDestinations = destinations; // already capped by the limit param
+  const hasMore = totalTours > MAX_DESTINATIONS;
 
   return (
     <footer className="bg-[#0f4c81] text-white/80 pt-16 pb-8 mt-0">
@@ -61,7 +77,7 @@ export default function Footer() {
             <Link href="/" className="bg-white p-4 rounded-xl inline-block mb-5">
   <Image
     src="/images/logos.png"
-    alt="eBooking Nepal"
+    alt="Sajilo Yatra Nepal"
     width={200}
     height={61}
     className="h-12 w-auto object-contain"
@@ -103,10 +119,10 @@ export default function Footer() {
               {hasMore && (
                 <li>
                   <Link
-                    href="/tours"
+                    href="/#search-section"
                     className="text-[0.78rem] text-sky-accent/70 hover:text-sky-accent transition-colors font-medium no-underline"
                   >
-                    View all {destinations.length} tours →
+                    View all {totalTours} tours →
                   </Link>
                 </li>
               )}
@@ -161,7 +177,7 @@ export default function Footer() {
         {/* Bottom bar */}
         <div className="flex flex-col md:flex-row items-center justify-between gap-4 pt-7">
           <p className="text-[0.78rem] text-white/35 font-light">
-            © {new Date().getFullYear()} eBooking Nepal. All rights reserved.
+            © {new Date().getFullYear()} Sajilo Yatra Nepal. All rights reserved.
           </p>
           <div className="flex gap-6">
             {[

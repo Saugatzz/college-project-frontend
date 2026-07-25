@@ -2,6 +2,7 @@
 import FilterSidebar from '@/components/tours/FilterSidebar';
 import TourCard from '@/components/tours/TourCard';
 import NoResults from '@/components/tours/NoResults';
+import Pagination from '@/components/tours/Pagination';
 import type { FilterState } from '@/hooks/useFilters';
 import type { Category, Tour } from '@/types/tour';
 
@@ -16,12 +17,15 @@ const CATEGORIES: { label: string; value: CategoryOption }[] = [
 
 interface Props {
   filters:           FilterState;
-  tours:             Tour[];        // ← was: filtered
-  loading:           boolean;       // ← new
-  error:             string | null; // ← new
+  tours:             Tour[];
+  loading:           boolean;
+  error:             string | null;
   activeFilterCount: number;
+  page:              number;        // ← new
+  totalPages:        number;        // ← new
   onUpdate:          (patch: Partial<FilterState>) => void;
   onClear:           () => void;
+  onPageChange:      (page: number) => void; // ← new
 }
 
 export default function ToursSection({
@@ -30,8 +34,11 @@ export default function ToursSection({
   loading,
   error,
   activeFilterCount,
+  page,
+  totalPages,
   onUpdate,
   onClear,
+  onPageChange,
 }: Props) {
   return (
     <section className="px-4 md:px-8 lg:px-12 pt-12 pb-24 bg-snow" id="tours-section" aria-label="Tour listings">
@@ -67,7 +74,6 @@ export default function ToursSection({
         />
 
         <div>
-          {/* Loading */}
           {loading && (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
               {Array.from({ length: 6 }).map((_, i) => (
@@ -76,7 +82,6 @@ export default function ToursSection({
             </div>
           )}
 
-          {/* Error */}
           {!loading && error && (
             <div className="flex flex-col items-center justify-center py-20 text-center">
               <p className="text-stone text-sm">Something went wrong loading tours.</p>
@@ -89,16 +94,17 @@ export default function ToursSection({
             </div>
           )}
 
-          {/* No results */}
           {!loading && !error && tours.length === 0 && (
             <NoResults onClear={onClear} />
           )}
 
-          {/* Results */}
           {!loading && !error && tours.length > 0 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6" aria-live="polite">
-              {tours.map(tour => <TourCard key={tour.id} tour={tour} />)}
-            </div>
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6" aria-live="polite">
+                {tours.map(tour => <TourCard key={tour.id} tour={tour} />)}
+              </div>
+              <Pagination page={page} totalPages={totalPages} onPageChange={onPageChange} />
+            </>
           )}
         </div>
       </div>
