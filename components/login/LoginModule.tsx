@@ -42,7 +42,7 @@ const LoginModule = () => {
               Admin Panel
             </span>
           </div>
-          <h1 className="font-playfair text-3xl font-semibold text-[#1a1a2e]">Nepal Treks</h1>
+          <h1 className="font-playfair text-3xl font-semibold text-[#1a1a2e]">Sajilo Yatra</h1>
           <p className="text-[0.82rem] text-gray-400 mt-1">Sign in to your admin account</p>
         </div>
 
@@ -113,7 +113,7 @@ const LoginModule = () => {
         </div>
 
         <p className="text-center text-[0.7rem] text-gray-300 mt-6">
-          © {new Date().getFullYear()} Nepal Treks. All rights reserved.
+          © {new Date().getFullYear()} Sajilo Yatra. All rights reserved.
         </p>
       </div>
     </div>
