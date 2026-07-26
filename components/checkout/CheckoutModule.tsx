@@ -42,6 +42,8 @@ import {
   IconX,
   IconAlertCircle,
   IconBrandWhatsapp,
+  IconCalendarTime,
+  IconCalendarEvent,
 } from "@tabler/icons-react";
 import api from "@/lib/api/api";
 
@@ -59,6 +61,21 @@ const diffColor: Record<string, string> = {
 };
 type PayMethod = "Khalti" | "eSewa" | "Card";
 type ContactMethod = "email" | "whatsapp";
+type DateFlexibility = "exact" | "flexible";
+
+const FLEXIBILITY_WINDOWS = [
+  "±3 days",
+  "±1 week",
+  "±2 weeks",
+  "Whole month",
+] as const;
+
+// Choosing an exact date guarantees a dedicated local guide for that date
+// rather than "we'll do our best" — this fee funds that guarantee. It's
+// a percentage of the base tour price (before add-ons) and is 0 for
+// flexible bookings, since those are worked out within a window instead
+// of guaranteed outright.
+const EXACT_DATE_SURCHARGE_RATE = 0.1; // 10% of base tour price
 
 function FakeQRCode({ label, color }: { label: string; color: string }) {
   const SIZE = 21;
@@ -119,6 +136,34 @@ function FakeQRCode({ label, color }: { label: string; color: string }) {
       )}
     </svg>
   );
+}
+
+// Formats the customer's chosen exact date / flexible month + window into a
+// single human-readable line used in the review step, confirmation modal,
+// and (mirrored server-side) the confirmation email.
+function formatPreferredTiming(values: {
+  dateFlexibility: DateFlexibility;
+  preferredDate: string;
+  preferredMonth: string;
+  flexibilityWindow: string;
+}): string {
+  if (values.dateFlexibility === "exact") {
+    if (!values.preferredDate) return "—";
+    const d = new Date(values.preferredDate + "T00:00:00");
+    return d.toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+  }
+  if (!values.preferredMonth) return "—";
+  const [y, m] = values.preferredMonth.split("-").map(Number);
+  const monthLabel = new Date(y, (m || 1) - 1, 1).toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+  });
+  return `${monthLabel} · flexible (${values.flexibilityWindow})`;
 }
 
 export default function CheckoutClient() {
@@ -217,6 +262,9 @@ export default function CheckoutClient() {
   const [verifyError, setVerifyError] = useState("");
   const [resendCooldown, setResendCooldown] = useState(0);
 
+  const todayISO = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const todayMonthISO = useMemo(() => new Date().toISOString().slice(0, 7), []);
+
   const form = useForm({
     initialValues: {
       firstName: "",
@@ -231,6 +279,12 @@ export default function CheckoutClient() {
       cvv: "",
       contactMethod: "email" as ContactMethod,
       whatsappNumber: "",
+      // ── Preferred start timing ──
+      dateFlexibility: "exact" as DateFlexibility,
+      preferredDate: "",
+      preferredMonth: "",
+      flexibilityWindow: "±1 week" as (typeof FLEXIBILITY_WINDOWS)[number],
+      dateNotes: "",
     },
     validate: {
       firstName: (v) =>
@@ -251,6 +305,14 @@ export default function CheckoutClient() {
         values.contactMethod === "whatsapp" &&
         !/^\+?[\d\s\-().]{7,20}$/.test((v ?? "").trim())
           ? "Please enter a valid WhatsApp number"
+          : null,
+      preferredDate: (v, values) =>
+        values.dateFlexibility === "exact" && !v
+          ? "Please pick your preferred start date"
+          : null,
+      preferredMonth: (v, values) =>
+        values.dateFlexibility === "flexible" && !v
+          ? "Please pick a preferred month"
           : null,
       cardNumber: (v) => {
         if (step !== 2 || payMethod !== "Card") return null;
@@ -349,7 +411,24 @@ export default function CheckoutClient() {
   }, [tour, selectedAddonIndices, form.values.travelers]);
 
   const baseTotal = (tour?.price ?? 0) * form.values.travelers;
-  const grandTotal = baseTotal + addonTotal;
+
+  // Guarantees a guide for an exact preferred date — flexible bookings pay
+  // nothing extra but wait for guide confirmation within their window.
+  const isExactDate = form.values.dateFlexibility === "exact";
+  const exactDateSurcharge = isExactDate ? baseTotal * EXACT_DATE_SURCHARGE_RATE : 0;
+
+  const grandTotal = baseTotal + addonTotal + exactDateSurcharge;
+
+  // The date the API will actually receive: for "exact" it's the picked
+  // date as-is; for "flexible" we anchor on the 1st of the chosen month so
+  // the backend/admin always has a concrete reference point, while
+  // `flexibilityWindow` communicates how loose that anchor really is.
+  const preferredDateForSubmit =
+    form.values.dateFlexibility === "exact"
+      ? form.values.preferredDate || undefined
+      : form.values.preferredMonth
+        ? `${form.values.preferredMonth}-01`
+        : undefined;
 
   const handleStep0 = () => {
     const result = form.validate();
@@ -361,6 +440,9 @@ export default function CheckoutClient() {
       "country",
       "travelers",
       ...(form.values.contactMethod === "whatsapp" ? (["whatsappNumber"] as const) : []),
+      ...(form.values.dateFlexibility === "exact"
+        ? (["preferredDate"] as const)
+        : (["preferredMonth"] as const)),
     ] as const;
     if (fields.some((f) => result.errors[f])) return;
 
@@ -468,6 +550,7 @@ export default function CheckoutClient() {
         paymentMethod: payMethod,
         tourPrice: tour?.price ?? 0,
         addonsTotal: addonTotal,
+        dateSurcharge: exactDateSurcharge,
         totalAmount: grandTotal,
         selectedAddons,
         contactMethod: form.values.contactMethod,
@@ -477,6 +560,14 @@ export default function CheckoutClient() {
             : form.values.email,
         emailVerificationToken: verificationToken,
         cardPaymentToken,
+        // ── Preferred start timing ──
+        preferredDate: preferredDateForSubmit,
+        dateFlexibility: form.values.dateFlexibility,
+        flexibilityWindow:
+          form.values.dateFlexibility === "flexible"
+            ? form.values.flexibilityWindow
+            : undefined,
+        dateNotes: form.values.dateNotes || undefined,
       });
 
       if ((payMethod === "Khalti" || payMethod === "eSewa") && txFile) {
@@ -504,6 +595,7 @@ export default function CheckoutClient() {
             grandTotal,
             email: form.values.email,
             payMethod,
+            preferredTiming: formatPreferredTiming(form.values),
           }),
         );
       } catch {}
@@ -596,6 +688,8 @@ export default function CheckoutClient() {
       </>
     );
 
+  const preferredTimingDisplay = formatPreferredTiming(form.values);
+
   return (
     <>
       <Header />
@@ -681,6 +775,7 @@ export default function CheckoutClient() {
                     "Travelers",
                     `${form.values.travelers} ${form.values.travelers === 1 ? "person" : "people"}`,
                   ],
+                  ["Preferred start", preferredTimingDisplay],
                   ["Payment", payMethod],
                 ] as [string, string][]
               ).map(([k, v]) => (
@@ -728,6 +823,17 @@ export default function CheckoutClient() {
                 </>
               )}
 
+              {exactDateSurcharge > 0 && (
+                <Group justify="space-between">
+                  <Text fz={13} c="dimmed" fw={300}>
+                    Exact date guarantee fee
+                  </Text>
+                  <Text fz={13} fw={500} c="orange.6">
+                    +${exactDateSurcharge.toLocaleString()}
+                  </Text>
+                </Group>
+              )}
+
               <Divider color="rgba(46,134,193,0.2)" />
 
               {/* Total highlighted */}
@@ -752,7 +858,7 @@ export default function CheckoutClient() {
             </Stack>
           </Box>
 
-          {/* Cancellation note */}
+          {/* Cancellation + guide-coordination note */}
           <Box
             p="sm"
             mb="xl"
@@ -762,12 +868,32 @@ export default function CheckoutClient() {
               border: "1px solid rgba(46,134,193,0.15)",
             }}
           >
-            <Group gap={6}>
-              <IconShieldCheck size={13} color="#2e86c1" />
-              <Text fz={12} c="blue.7" fw={400}>
-                Free cancellation up to 14 days before departure
-              </Text>
-            </Group>
+            <Stack gap={6}>
+              <Group gap={6}>
+                <IconShieldCheck size={13} color="#2e86c1" />
+                <Text fz={12} c="blue.7" fw={400}>
+                  Free cancellation up to 14 days before departure
+                </Text>
+              </Group>
+              <Group gap={6} align="flex-start">
+                <IconCalendarTime size={13} color="#2e86c1" style={{ marginTop: 2, flexShrink: 0 }} />
+                <Text fz={12} c="blue.7" fw={400}>
+                  {isExactDate ? (
+                    <>
+                      A guide is guaranteed for{" "}
+                      <Text span fw={700}>{preferredTimingDisplay}</Text>{" — "}
+                      we'll follow up shortly to finalize arrangements.
+                    </>
+                  ) : (
+                    <>
+                      We'll reach out to our local guides to confirm your
+                      exact departure date around{" "}
+                      <Text span fw={700}>{preferredTimingDisplay}</Text>.
+                    </>
+                  )}
+                </Text>
+              </Group>
+            </Stack>
           </Box>
 
           {/* Actions */}
@@ -1069,6 +1195,135 @@ export default function CheckoutClient() {
                   />
                 </Group>
 
+                {/* ── Preferred start date / timeframe ── */}
+                <Box>
+                  <Group justify="space-between" mb={8}>
+                    <Text
+                      fz={11}
+                      fw={700}
+                      c="gray.6"
+                      style={{ letterSpacing: "0.1em", textTransform: "uppercase" }}
+                    >
+                      When would you like to start?
+                    </Text>
+                    {isExactDate && exactDateSurcharge > 0 && (
+                      <Text fz={11} fw={700} c="orange.6">
+                        +${exactDateSurcharge.toLocaleString()} guarantee fee
+                      </Text>
+                    )}
+                  </Group>
+                  <Group grow gap="sm" mb="sm">
+                    {(["exact", "flexible"] as const).map((opt) => (
+                      <button
+                        key={opt}
+                        type="button"
+                        onClick={() => form.setFieldValue("dateFlexibility", opt)}
+                        style={{
+                          border:
+                            form.values.dateFlexibility === opt
+                              ? "2px solid #2e86c1"
+                              : "1.5px solid rgba(46,134,193,0.2)",
+                          borderRadius: rem(14),
+                          padding: `${rem(12)} ${rem(8)}`,
+                          fontSize: rem(13),
+                          fontWeight: 600,
+                          color:
+                            form.values.dateFlexibility === opt
+                              ? "#1a6ea8"
+                              : "#6b7c8d",
+                          background:
+                            form.values.dateFlexibility === opt
+                              ? "linear-gradient(135deg, #f0f8ff, #e0f0fa)"
+                              : "transparent",
+                          cursor: "pointer",
+                          transition: "all 0.2s ease",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: rem(8),
+                        }}
+                      >
+                        {opt === "exact" ? (
+                          <IconCalendarEvent size={16} />
+                        ) : (
+                          <IconCalendarTime size={16} />
+                        )}
+                        {opt === "exact" ? "I have an exact date" : "I'm flexible"}
+                      </button>
+                    ))}
+                  </Group>
+
+                  {form.values.dateFlexibility === "exact" ? (
+                    <TextInput
+                      type="date"
+                      label="Preferred start date"
+                      min={todayISO}
+                      leftSection={<IconCalendarEvent size={15} />}
+                      {...form.getInputProps("preferredDate")}
+                      styles={inputStyles}
+                    />
+                  ) : (
+                    <Stack gap="sm">
+                      <TextInput
+                        type="month"
+                        label="Preferred month"
+                        min={todayMonthISO}
+                        leftSection={<IconCalendarTime size={15} />}
+                        {...form.getInputProps("preferredMonth")}
+                        styles={inputStyles}
+                      />
+                      <Box>
+                        <Text
+                          fz={11}
+                          fw={700}
+                          c="gray.6"
+                          mb={6}
+                          style={{ letterSpacing: "0.1em", textTransform: "uppercase" }}
+                        >
+                          How flexible?
+                        </Text>
+                        <Group gap={8}>
+                          {FLEXIBILITY_WINDOWS.map((w) => (
+                            <button
+                              key={w}
+                              type="button"
+                              onClick={() => form.setFieldValue("flexibilityWindow", w)}
+                              style={{
+                                border:
+                                  form.values.flexibilityWindow === w
+                                    ? "2px solid #2e86c1"
+                                    : "1.5px solid rgba(46,134,193,0.2)",
+                                borderRadius: rem(20),
+                                padding: `${rem(6)} ${rem(14)}`,
+                                fontSize: rem(12),
+                                fontWeight: 600,
+                                color:
+                                  form.values.flexibilityWindow === w
+                                    ? "#1a6ea8"
+                                    : "#6b7c8d",
+                                background:
+                                  form.values.flexibilityWindow === w
+                                    ? "linear-gradient(135deg, #f0f8ff, #e0f0fa)"
+                                    : "transparent",
+                                cursor: "pointer",
+                                transition: "all 0.2s ease",
+                              }}
+                            >
+                              {w}
+                            </button>
+                          ))}
+                        </Group>
+                      </Box>
+                    </Stack>
+                  )}
+
+                  <Text fz={11} c="dimmed" fw={300} mt={8} lh={1.5}>
+                    {isExactDate
+                      ? "An exact date guarantees a dedicated local guide for your trip on this date — a small guarantee fee applies, shown in your total below. Our team will follow up to finalize arrangements."
+                      : "We'll coordinate with our trusted local guides within this window and confirm your exact departure date shortly after booking."}
+                  </Text>
+                </Box>
+
                 {/* ── Preferred contact method ── */}
                 <Box>
                   <Text
@@ -1230,6 +1485,7 @@ export default function CheckoutClient() {
                           ? `WhatsApp (${form.values.whatsappNumber})`
                           : "Email",
                       ],
+                      ["Preferred start", preferredTimingDisplay],
                     ] as [string, string][]
                   ).map(([k, v]) => (
                     <Group key={k} justify="space-between" wrap="nowrap">
@@ -1280,6 +1536,19 @@ export default function CheckoutClient() {
                             .map((i) => tour.addons[i]?.name)
                             .filter(Boolean)
                             .join(", ")}
+                        </Text>
+                      </Group>
+                    </>
+                  )}
+                  {exactDateSurcharge > 0 && (
+                    <>
+                      <Divider color="rgba(46,134,193,0.12)" />
+                      <Group justify="space-between">
+                        <Text fz={13} c="dimmed" fw={300}>
+                          Exact date guarantee fee
+                        </Text>
+                        <Text fz={13} fw={500} c="orange.6">
+                          +${exactDateSurcharge.toLocaleString()}
                         </Text>
                       </Group>
                     </>
@@ -1859,6 +2128,16 @@ export default function CheckoutClient() {
                     </Group>
                   );
                 })}
+                {exactDateSurcharge > 0 && (
+                  <Group justify="space-between">
+                    <Text fz={13} c="dimmed" fw={300}>
+                      Exact date guarantee fee
+                    </Text>
+                    <Text fz={13} fw={500} c="orange.6">
+                      +${exactDateSurcharge.toLocaleString()}
+                    </Text>
+                  </Group>
+                )}
               </Stack>
               <Group justify="space-between" align="flex-end">
                 <Text fz={13} c="dimmed">
@@ -1886,12 +2165,22 @@ export default function CheckoutClient() {
                   border: "1px solid rgba(46,134,193,0.12)",
                 }}
               >
-                <Group gap={6}>
-                  <IconShieldCheck size={14} color="#2e86c1" />
-                  <Text fz={12} c="blue.7" fw={500}>
-                    Free cancellation up to 14 days before departure
-                  </Text>
-                </Group>
+                <Stack gap={6}>
+                  <Group gap={6}>
+                    <IconShieldCheck size={14} color="#2e86c1" />
+                    <Text fz={12} c="blue.7" fw={500}>
+                      Free cancellation up to 14 days before departure
+                    </Text>
+                  </Group>
+                  {step > 0 && (
+                    <Group gap={6} align="flex-start">
+                      <IconCalendarTime size={14} color="#2e86c1" style={{ marginTop: 1, flexShrink: 0 }} />
+                      <Text fz={12} c="blue.7" fw={500}>
+                        {isExactDate ? "Guaranteed" : "Preferred"} start: {preferredTimingDisplay}
+                      </Text>
+                    </Group>
+                  )}
+                </Stack>
               </Box>
             </Paper>
           </aside>

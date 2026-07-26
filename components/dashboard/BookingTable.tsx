@@ -8,7 +8,7 @@ import {
   IconRefresh, IconAlertCircle, IconX, IconUser, IconMail, IconPhone,
   IconWorld, IconUsers, IconCreditCard, IconCalendar, IconMountain,
   IconCheck, IconClock, IconNotes, IconPackage, IconFileTypePdf,
-  IconBrandWhatsapp,
+  IconBrandWhatsapp, IconCalendarTime, IconCompass,
 } from "@tabler/icons-react";
 import { ColumnDef } from "@tanstack/react-table";
 import api from "@/lib/api/api";
@@ -18,6 +18,11 @@ import AppNotification, { useNotification } from "@/components/common/AppNotific
 type BookingStatus = "pending" | "confirmed" | "cancelled";
 type PaymentMethod = "Khalti" | "eSewa" | "Card";
 type ContactMethod = "email" | "whatsapp";
+type DateFlexibility = "exact" | "flexible";
+type GuideCoordinationStatus =
+  | "pending_contact"
+  | "contacting_guides"
+  | "guides_confirmed";
 
 interface BookingAddon { id: number; name: string; price: number }
 
@@ -34,6 +39,7 @@ interface Booking {
   paymentMethod: PaymentMethod;
   tourPrice: number;
   addonsTotal: number;
+  dateSurcharge?: number;
   totalAmount: number;
   status: BookingStatus;
   selectedAddons: BookingAddon[];
@@ -42,6 +48,13 @@ interface Booking {
   cardLast4?: string;
   contactMethod?: ContactMethod;
   contactValue?: string;
+  // ── Preferred start timing (what the customer asked for) ──
+  preferredDate?: string;
+  dateFlexibility?: DateFlexibility;
+  flexibilityWindow?: string;
+  dateNotes?: string;
+  // ── Guide coordination (what the business has done about it) ──
+  guideCoordinationStatus?: GuideCoordinationStatus;
   tour?: {
     id?: number;
     title?: string;
@@ -61,12 +74,30 @@ const STATUS_CONFIG: Record<BookingStatus, { color: string; label: string; bg: s
   cancelled: { color: "red",    label: "Cancelled", bg: "#fef2f2", dot: "#ef4444" },
 };
 
+const GUIDE_STATUS_CONFIG: Record<GuideCoordinationStatus, { label: string; bg: string; dot: string; color: string }> = {
+  pending_contact:   { label: "Not contacted yet",  bg: "#f1f5f9", dot: "#94a3b8", color: "gray"   },
+  contacting_guides: { label: "Contacting guides",   bg: "#fffbeb", dot: "#f59e0b", color: "orange" },
+  guides_confirmed:  { label: "Guides confirmed",    bg: "#f0fdf4", dot: "#10b981", color: "teal"   },
+};
+
 const PAY_ICON: Record<PaymentMethod, string> = {
   Khalti: "💜", eSewa: "💚", Card: "💳",
 };
 
 // Statuses that can no longer be changed once set.
 const LOCKED_STATUSES: BookingStatus[] = ["confirmed", "cancelled"];
+
+// Formats the customer's requested timing (preferredDate + flexibility)
+// into one readable line, mirroring the logic on the checkout form.
+function formatPreferredTiming(b: Booking): string {
+  if (!b.preferredDate) return "—";
+  const d = new Date(b.preferredDate + "T00:00:00");
+  if (b.dateFlexibility === "flexible") {
+    const monthLabel = d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    return `${monthLabel} · flexible (${b.flexibilityWindow ?? "no window set"})`;
+  }
+  return d.toLocaleDateString("en-US", { weekday: "short", month: "long", day: "numeric", year: "numeric" });
+}
 
 function DetailField({ icon, label, value }: { icon: React.ReactNode; label: string; value: React.ReactNode }) {
   return (
@@ -86,21 +117,34 @@ function DetailField({ icon, label, value }: { icon: React.ReactNode; label: str
   );
 }
 
-function BookingDrawer({ booking, opened, onClose, onStatusChange, onNotify }: {
+function BookingDrawer({ booking, opened, onClose, onStatusChange, onGuideStatusChange, onNotify }: {
   booking: Booking | null;
   opened: boolean;
   onClose: () => void;
   onStatusChange: (id: number, status: BookingStatus) => void;
+  onGuideStatusChange: (id: number, status: GuideCoordinationStatus, departureDate?: string) => void;
   onNotify: (type: 'success' | 'error', title: string, message: string) => void;
 }) {
   const [localStatus, setLocalStatus] = useState<BookingStatus>("pending");
   const [saving,      setSaving]      = useState(false);
   const [saved,       setSaved]       = useState(false);
 
-  useEffect(() => { if (booking) setLocalStatus(booking.status); }, [booking]);
+  const [localGuideStatus, setLocalGuideStatus] = useState<GuideCoordinationStatus>("pending_contact");
+  const [confirmedDate,    setConfirmedDate]    = useState("");
+  const [guideSaving,      setGuideSaving]      = useState(false);
+  const [guideSaved,       setGuideSaved]       = useState(false);
+
+  useEffect(() => {
+    if (booking) {
+      setLocalStatus(booking.status);
+      setLocalGuideStatus(booking.guideCoordinationStatus ?? "pending_contact");
+      setConfirmedDate(booking.departureDate ?? "");
+    }
+  }, [booking]);
   if (!booking) return null;
 
   const sc          = STATUS_CONFIG[localStatus] ?? STATUS_CONFIG.pending;
+  const gsc         = GUIDE_STATUS_CONFIG[localGuideStatus] ?? GUIDE_STATUS_CONFIG.pending_contact;
   const tourName    = booking.tour?.title ?? booking.tour?.name ?? "—";
   const tourDuration = booking.tour?.durationDays
     ? `${booking.tour.durationDays} Days`
@@ -108,6 +152,8 @@ function BookingDrawer({ booking, opened, onClose, onStatusChange, onNotify }: {
   const contactMethod = booking.contactMethod ?? "email";
   const contactValue  = booking.contactValue ?? booking.email;
   const isLocked = LOCKED_STATUSES.includes(booking.status);
+  const preferredTiming = formatPreferredTiming(booking);
+  const isExactDate = (booking.dateFlexibility ?? "exact") !== "flexible";
 
   const handleSaveStatus = async () => {
     setSaving(true);
@@ -127,6 +173,31 @@ function BookingDrawer({ booking, opened, onClose, onStatusChange, onNotify }: {
       setLocalStatus(booking.status);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSaveGuideStatus = async () => {
+    setGuideSaving(true);
+    try {
+      const { data } = await api.patch(`/bookings/${booking.id}/guide-status`, {
+        guideCoordinationStatus: localGuideStatus,
+        confirmedDepartureDate:
+          localGuideStatus === "guides_confirmed" && confirmedDate ? confirmedDate : undefined,
+      });
+      onGuideStatusChange(booking.id, localGuideStatus, data?.departureDate ?? confirmedDate);
+      setGuideSaved(true);
+      setTimeout(() => setGuideSaved(false), 2500);
+      onNotify(
+        'success',
+        'Guide coordination updated',
+        `Customer has been notified about booking #${String(booking.id).padStart(4, '0')}.`,
+      );
+    } catch (err: any) {
+      const msg = err?.response?.data?.message ?? 'Could not update guide coordination status.';
+      onNotify('error', 'Update failed', msg);
+      setLocalGuideStatus(booking.guideCoordinationStatus ?? "pending_contact");
+    } finally {
+      setGuideSaving(false);
     }
   };
 
@@ -185,7 +256,7 @@ function BookingDrawer({ booking, opened, onClose, onStatusChange, onNotify }: {
             <DetailField icon={<IconMountain size={15} />} label="Tour"     value={tourName} />
             <DetailField icon={<IconCalendar size={15} />} label="Duration" value={tourDuration} />
             {booking.departureDate && (
-              <DetailField icon={<IconClock size={15} />} label="Departure"
+              <DetailField icon={<IconClock size={15} />} label="Confirmed departure"
                 value={new Date(booking.departureDate).toLocaleDateString("en-US", { weekday: "short", year: "numeric", month: "long", day: "numeric" })}
               />
             )}
@@ -193,6 +264,84 @@ function BookingDrawer({ booking, opened, onClose, onStatusChange, onNotify }: {
               value={`${booking.travelers} ${booking.travelers === 1 ? "person" : "people"}`}
             />
           </Stack>
+        </Paper>
+
+        <Paper radius="lg" p="md" mb="lg" style={{ background: "#f8fafc", border: "1px solid #eef2f7" }}>
+          <Group justify="space-between" mb={10}>
+            <Text fz={10} fw={700} c="gray.6" style={{ letterSpacing: "0.12em", textTransform: "uppercase" }}>Requested Timing</Text>
+            {isExactDate && (
+              <Text fz={10} fw={700} c="teal.7" style={{ letterSpacing: "0.06em" }}>Guide guaranteed</Text>
+            )}
+          </Group>
+          <Stack gap={10}>
+            <DetailField
+              icon={booking.dateFlexibility === "flexible" ? <IconCalendarTime size={15} /> : <IconCalendar size={15} />}
+              label={booking.dateFlexibility === "flexible" ? "Preferred month" : "Preferred date"}
+              value={preferredTiming}
+            />
+            {booking.dateNotes && (
+              <DetailField icon={<IconNotes size={15} />} label="Timing notes" value={booking.dateNotes} />
+            )}
+          </Stack>
+        </Paper>
+
+        <Paper radius="lg" p="md" mb="lg" style={{ background: gsc.bg, border: `1px solid ${gsc.dot}33` }}>
+          <Group justify="space-between" mb={10}>
+            <Text fz={10} fw={700} style={{ letterSpacing: "0.12em", textTransform: "uppercase", color: gsc.dot }}>Guide Coordination</Text>
+            <Group gap={6}>
+              <Box style={{ width: 7, height: 7, borderRadius: "50%", background: gsc.dot, flexShrink: 0 }} />
+              <Text fz={11} fw={700} style={{ color: gsc.dot }}>{gsc.label}</Text>
+            </Group>
+          </Group>
+          {!isLocked && booking.status !== "cancelled" ? (
+            <Stack gap={8}>
+              <Select
+                value={localGuideStatus}
+                onChange={(v) => v && setLocalGuideStatus(v as GuideCoordinationStatus)}
+                data={[
+                  { value: "pending_contact",   label: "⚪ Not contacted yet" },
+                  { value: "contacting_guides", label: "🟡 Contacting guides" },
+                  { value: "guides_confirmed",  label: "🟢 Guides confirmed" },
+                ]}
+                styles={{ input: { borderRadius: rem(10), border: "1.5px solid #dbeafe", fontSize: rem(13), fontWeight: 500 } }}
+              />
+              {localGuideStatus === "guides_confirmed" && (
+                <input
+                  type="date"
+                  value={confirmedDate}
+                  onChange={(e) => setConfirmedDate(e.target.value)}
+                  style={{
+                    borderRadius: rem(10),
+                    border: "1.5px solid #dbeafe",
+                    fontSize: rem(13),
+                    fontWeight: 500,
+                    padding: `${rem(8)} ${rem(10)}`,
+                    color: "#334155",
+                  }}
+                />
+              )}
+              <Button
+                onClick={handleSaveGuideStatus}
+                loading={guideSaving}
+                disabled={
+                  localGuideStatus === (booking.guideCoordinationStatus ?? "pending_contact") &&
+                  (localGuideStatus !== "guides_confirmed" || confirmedDate === (booking.departureDate ?? ""))
+                }
+                radius="xl"
+                size="xs"
+                style={{ alignSelf: "flex-start", background: "linear-gradient(135deg, #2e86c1, #0f4c81)" }}
+              >
+                Save & notify customer
+              </Button>
+              {guideSaved && (
+                <Text fz={11} c="teal.7" fw={600}>✓ Saved — customer notified</Text>
+              )}
+            </Stack>
+          ) : (
+            <Text fz={12} c="dimmed">
+              This booking is {booking.status}; guide coordination is no longer editable.
+            </Text>
+          )}
         </Paper>
 
         <Paper radius="lg" p="md" mb="lg" style={{ background: "#fafbfc", border: "1px solid #eef2f7" }}>
@@ -232,6 +381,12 @@ function BookingDrawer({ booking, opened, onClose, onStatusChange, onNotify }: {
               <Group justify="space-between">
                 <Text fz={12} c="dimmed">Add-ons</Text>
                 <Text fz={12} fw={500} c="blue.6">+${Number(booking.addonsTotal).toLocaleString()}</Text>
+              </Group>
+            )}
+            {Number(booking.dateSurcharge) > 0 && (
+              <Group justify="space-between">
+                <Text fz={12} c="dimmed">Exact date fee</Text>
+                <Text fz={12} fw={500} c="orange.6">+${Number(booking.dateSurcharge).toLocaleString()}</Text>
               </Group>
             )}
             <Group justify="space-between" pt={4} style={{ borderTop: "1.5px solid #e8f0f8" }}>
@@ -398,6 +553,11 @@ export default function BookingTable() {
     setSelected(prev => prev?.id === id ? { ...prev, status } : prev);
   }, []);
 
+  const handleGuideStatusChange = useCallback((id: number, status: GuideCoordinationStatus, departureDate?: string) => {
+    setBookings(prev => prev.map(b => b.id === id ? { ...b, guideCoordinationStatus: status, departureDate: departureDate ?? b.departureDate } : b));
+    setSelected(prev => prev?.id === id ? { ...prev, guideCoordinationStatus: status, departureDate: departureDate ?? prev.departureDate } : prev);
+  }, []);
+
   const handleInlineStatusChange = async (b: Booking, newStatus: BookingStatus) => {
     if (LOCKED_STATUSES.includes(b.status)) return; // guarded in UI too, but no-op just in case
     try {
@@ -416,6 +576,10 @@ export default function BookingTable() {
 
   const pendingCount   = bookings.filter(b => b.status === "pending").length;
   const confirmedCount = bookings.filter(b => b.status === "confirmed").length;
+  const awaitingGuideCount = bookings.filter(
+    b => b.status !== "cancelled" &&
+      (b.guideCoordinationStatus ?? "pending_contact") !== "guides_confirmed",
+  ).length;
   const totalRevenue = bookings
     .filter(b => b.status !== "cancelled")
     .reduce((s, b) => s + Number(b.totalAmount), 0);
@@ -462,6 +626,35 @@ export default function BookingTable() {
       },
     },
     {
+      id: "timing", header: "Preferred Timing", size: 160, enableSorting: false,
+      accessorFn: (row) => row.preferredDate ?? "",
+      cell: ({ row }) => {
+        const b = row.original;
+        if (!b.preferredDate) return <Text fz={12} c="dimmed">—</Text>;
+        return (
+          <Group gap={6} wrap="nowrap">
+            {b.dateFlexibility === "flexible"
+              ? <IconCalendarTime size={14} color="#2e86c1" />
+              : <IconCalendar size={14} color="#2e86c1" />}
+            <Text fz={12} c="dark.6" truncate>{formatPreferredTiming(b)}</Text>
+          </Group>
+        );
+      },
+    },
+    {
+      id: "guideStatus", header: "Guide Coordination", size: 150, enableSorting: false,
+      accessorFn: (row) => row.guideCoordinationStatus ?? "pending_contact",
+      cell: ({ row }) => {
+        const gsc = GUIDE_STATUS_CONFIG[row.original.guideCoordinationStatus ?? "pending_contact"];
+        return (
+          <Group gap={6} wrap="nowrap">
+            <Box style={{ width: 7, height: 7, borderRadius: "50%", background: gsc.dot, flexShrink: 0 }} />
+            <Text fz={12} c="dark.6" truncate>{gsc.label}</Text>
+          </Group>
+        );
+      },
+    },
+    {
       id: "contact", header: "Contact Preference", size: 170, enableSorting: false,
       accessorFn: (row) => row.contactMethod ?? "email",
       cell: ({ row }) => {
@@ -503,6 +696,7 @@ export default function BookingTable() {
           <>
             <Text fz={13} fw={600} c="dark.7">${Number(b.totalAmount).toLocaleString()}</Text>
             {Number(b.addonsTotal) > 0 && <Text fz={11} c="blue.5">+${Number(b.addonsTotal).toLocaleString()} add-ons</Text>}
+            {Number(b.dateSurcharge) > 0 && <Text fz={11} c="orange.6">+${Number(b.dateSurcharge).toLocaleString()} date fee</Text>}
           </>
         );
       },
@@ -619,12 +813,13 @@ export default function BookingTable() {
     <>
       <AppNotification notifications={notifications} onDismiss={dismiss} />
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
         {[
-          { label: "Total Bookings", value: bookings.length,                     color: "text-[#1a1a2e]" },
-          { label: "Confirmed",      value: confirmedCount,                      color: "text-teal-600"  },
-          { label: "Pending",        value: pendingCount,                        color: "text-amber-500" },
-          { label: "Revenue",        value: `$${totalRevenue.toLocaleString()}`, color: "text-[#2E86C1]" },
+          { label: "Total Bookings",   value: bookings.length,                     color: "text-[#1a1a2e]" },
+          { label: "Confirmed",        value: confirmedCount,                      color: "text-teal-600"  },
+          { label: "Pending",          value: pendingCount,                        color: "text-amber-500" },
+          { label: "Awaiting Guides",  value: awaitingGuideCount,                  color: "text-[#2E86C1]" },
+          { label: "Revenue",          value: `$${totalRevenue.toLocaleString()}`, color: "text-[#2E86C1]" },
         ].map(s => (
           <div key={s.label} className="bg-white border border-gray-100 rounded-[14px] px-4 py-3 shadow-[0_2px_8px_rgba(30,80,120,0.05)]">
             <div className={`font-playfair text-[1.6rem] font-light leading-none ${s.color}`}>{s.value}</div>
@@ -650,6 +845,7 @@ export default function BookingTable() {
         opened={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         onStatusChange={handleStatusChange}
+        onGuideStatusChange={handleGuideStatusChange}
         onNotify={notify}
       />
     </>
