@@ -5,7 +5,7 @@ export function middleware(request: NextRequest) {
 
   if (!pathname.startsWith('/dashboard')) return NextResponse.next();
 
-  const token = request.cookies.get('auth_token')?.value;
+  const token = request.cookies.get('admin_auth_token')?.value;
 
   if (!token) {
     const loginUrl = new URL('/auth/login', request.url);

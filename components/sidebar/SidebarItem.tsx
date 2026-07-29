@@ -8,6 +8,7 @@ import {
   IconStar,
   IconSettings,
   IconMessage,
+  IconUserCog,
 } from "@tabler/icons-react";
 
 interface SidebarItemProps {
@@ -28,6 +29,7 @@ const icons: Record<string, React.ReactNode> = {
   star:             <IconStar          size={18} stroke={1.6} />,
   settings:         <IconSettings      size={18} stroke={1.6} />,
   "message-square": <IconMessage size={18} stroke={1.6} />,
+  "user-cog":       <IconUserCog       size={18} stroke={1.6} />,
 };
 
 export default function SidebarItem({

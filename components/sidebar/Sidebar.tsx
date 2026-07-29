@@ -5,12 +5,13 @@ import { usePathname, useRouter } from "next/navigation";
 import SidebarItem from "./SidebarItem";
 import SidebarGroup from "./SidebarGroup";
 import api from "@/lib/api/api";
-import { clearAuth, getUser, AuthUser } from "@/lib/auth/tokenStore";
+import { clearAdminAuth, getAdminUser, AuthUser } from "@/lib/auth/tokenStore";
 import { IconLogout } from "@tabler/icons-react";
 
 interface ContactMessage { id: number; read: boolean; }
 interface Booking { id: number; }
 interface Tour { id: number; }
+interface AccountRow { id: string; }
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -20,11 +21,16 @@ export default function Sidebar() {
   const [unreadCount,  setUnreadCount]  = useState(0);
   const [bookingCount, setBookingCount] = useState(0);
   const [tourCount,    setTourCount]    = useState(0);
+  const [userCount,    setUserCount]    = useState(0);
 
   useEffect(() => {
-    // Runs only after hydration — no more "?"
-    setUser(getUser());
-  }, []);
+    // Sidebar lives in the dashboard's own root layout and persists
+    // across every /dashboard/* navigation — re-checking on pathname
+    // change (not just once on the very first mount) keeps it in sync
+    // rather than relying on a stale read from whenever the dashboard
+    // was first opened.
+    setUser(getAdminUser());
+  }, [pathname]);
 
   useEffect(() => {
     api.get<ContactMessage[]>('/contacts')
@@ -38,10 +44,14 @@ export default function Sidebar() {
     api.get<Tour[]>('/packages/admin/all')
       .then(({ data }) => setTourCount(data.length))
       .catch(() => {});
+
+    api.get<AccountRow[]>('/users')
+      .then(({ data }) => setUserCount(data.length))
+      .catch(() => {});
   }, [pathname]);
 
   function handleLogout() {
-    clearAuth();
+    clearAdminAuth();
     router.push('/auth/login');
   }
 
@@ -77,6 +87,13 @@ export default function Sidebar() {
           badgeVariant: "blue" as const,
         },
         { href: "/dashboard/customers", icon: "users",          label: "Customers" },
+        {
+          href: "/dashboard/users",
+          icon: "user-cog",
+          label: "Accounts",
+          badge: userCount > 0 ? String(userCount) : undefined,
+          badgeVariant: "blue" as const,
+        },
         {
           href: "/dashboard/messages",
           icon: "message-square",

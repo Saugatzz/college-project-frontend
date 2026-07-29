@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { PasswordInput, Button } from '@mantine/core';
 import api from '@/lib/api/api';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { saveAuth } from '@/lib/auth/tokenStore';
+import { saveAdminAuth } from '@/lib/auth/tokenStore';
 
 const LoginModule = () => {
   const router       = useRouter();
@@ -18,9 +18,9 @@ const LoginModule = () => {
     setLoading(true);
     setError('');
     try {
-      const { data } = await api.post('/auth/login', { email, password });
+      const { data } = await api.post('/auth/login', { email, password, audience: 'admin' });
       if (data.access_token) {
-        saveAuth(data.access_token, data.user);
+        saveAdminAuth(data.access_token, data.user);
       }
       const from = searchParams.get('from') || '/dashboard';
       router.push(from);

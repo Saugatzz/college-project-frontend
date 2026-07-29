@@ -22,6 +22,7 @@ import {
   rem,
   Loader,
   Modal,
+  Select,
 } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import {
@@ -46,6 +47,9 @@ import {
   IconCalendarEvent,
 } from "@tabler/icons-react";
 import api from "@/lib/api/api";
+import { getUser, getToken, AuthUser } from "@/lib/auth/tokenStore";
+import { COUNTRY_NAMES, dialCodeForCountry, stripDialCode } from "@/lib/constants/countries";
+import { IconTrash, IconLogin } from "@tabler/icons-react";
 
 const EMAIL_REGEX = /^\S+@\S+\.\S+$/;
 
@@ -250,6 +254,26 @@ export default function CheckoutClient() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // ── Account awareness: prefill details, offer sign-in before guest
+  // checkout, and saved cards for logged-in users ──────────────────────
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [showGuestPrompt, setShowGuestPrompt] = useState(false);
+
+  interface SavedCardView {
+    id: string;
+    brand: string;
+    last4: string;
+    expiryMonth: string;
+    expiryYear: string;
+  }
+  const [savedCards, setSavedCards] = useState<SavedCardView[]>([]);
+  const [savedCardsLoading, setSavedCardsLoading] = useState(false);
+  const [selectedCardId, setSelectedCardId] = useState<string>("new"); // "new" | saved card id
+  const [savedCardCvv, setSavedCardCvv] = useState("");
+  const [saveNewCard, setSaveNewCard] = useState(false);
+  const [removingCardId, setRemovingCardId] = useState<string | null>(null);
+
   // ── Email verification (proves the address actually exists / is
   // reachable, rather than just matching a regex) ──────────────────────
   const [emailForVerification, setEmailForVerification] = useState("");
@@ -300,7 +324,7 @@ export default function CheckoutClient() {
       country: (v) =>
         v.trim().length < 2 ? "Please enter your country of residence" : null,
       travelers: (v) =>
-        v >= 1 && v <= 8 ? null : "Please select 1–8 travelers",
+        v >= 1 && v <= 100 ? null : "Please select 1–100 travelers",
       whatsappNumber: (v, values) =>
         values.contactMethod === "whatsapp" &&
         !/^\+?[\d\s\-().]{7,20}$/.test((v ?? "").trim())
@@ -331,6 +355,54 @@ export default function CheckoutClient() {
     },
     validateInputOnBlur: true,
   });
+
+  // Runs once per mount, after hydration. If the person is logged in:
+  // prefill their name/email (only into still-empty fields, so we never
+  // clobber something they've already typed) and fetch their saved
+  // cards. If they're a guest, offer a one-time nudge to sign in first —
+  // "continue as guest" is always right there too, so nobody's blocked.
+  useEffect(() => {
+    const token = getToken();
+    const user = token ? getUser() : null;
+    setAuthUser(user);
+    setAuthChecked(true);
+
+    if (user) {
+      const [first, ...rest] = (user.name || "").trim().split(/\s+/);
+      if (!form.values.firstName && first) form.setFieldValue("firstName", first);
+      if (!form.values.lastName && rest.length) form.setFieldValue("lastName", rest.join(" "));
+      if (!form.values.email && user.email) form.setFieldValue("email", user.email);
+
+      setSavedCardsLoading(true);
+      api
+        .get<SavedCardView[]>("/payments/cards/me")
+        .then(({ data }) => setSavedCards(data))
+        .catch(() => setSavedCards([]))
+        .finally(() => setSavedCardsLoading(false));
+    } else {
+      const alreadyDismissed = sessionStorage.getItem("checkoutGuestPromptDismissed");
+      if (!alreadyDismissed) setShowGuestPrompt(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const dismissGuestPrompt = () => {
+    setShowGuestPrompt(false);
+    try { sessionStorage.setItem("checkoutGuestPromptDismissed", "1"); } catch {}
+  };
+
+  const handleRemoveSavedCard = async (id: string) => {
+    setRemovingCardId(id);
+    try {
+      await api.delete(`/payments/cards/${id}`);
+      setSavedCards((prev) => prev.filter((c) => c.id !== id));
+      if (selectedCardId === id) setSelectedCardId("new");
+    } catch {
+      // Non-critical — leave the card in the list if deletion failed.
+    } finally {
+      setRemovingCardId(null);
+    }
+  };
 
   // If the user edits the email after it was verified (or while a code is
   // pending), the old verification no longer proves anything about the new
@@ -430,6 +502,28 @@ export default function CheckoutClient() {
         ? `${form.values.preferredMonth}-01`
         : undefined;
 
+  // Selecting a country auto-fills/replaces the leading dial code on
+  // whichever phone-style fields already have one, so the person only
+  // has to specify their country once instead of typing the code
+  // themselves too. They can still freely edit the number afterward —
+  // this just seeds a sensible starting point.
+  const handleCountryChange = (countryName: string | null) => {
+    if (!countryName) return;
+    form.setFieldValue("country", countryName);
+
+    const dialCode = dialCodeForCountry(countryName);
+    if (!dialCode) return;
+
+    const currentPhone = stripDialCode(form.values.phone);
+    form.setFieldValue("phone", currentPhone ? `${dialCode} ${currentPhone}` : `${dialCode} `);
+
+    const currentWhatsapp = stripDialCode(form.values.whatsappNumber);
+    form.setFieldValue(
+      "whatsappNumber",
+      currentWhatsapp ? `${dialCode} ${currentWhatsapp}` : `${dialCode} `,
+    );
+  };
+
   const handleStep0 = () => {
     const result = form.validate();
     const fields = [
@@ -446,7 +540,7 @@ export default function CheckoutClient() {
     ] as const;
     if (fields.some((f) => result.errors[f])) return;
 
-    if (!emailVerified) {
+    if (!authUser && !emailVerified) {
       setVerifyError("Please verify your email address before continuing.");
       return;
     }
@@ -468,15 +562,22 @@ export default function CheckoutClient() {
     // completed step and edit fields without re-running the full
     // form.validate() flow, so email could be invalid/unverified here even
     // though Step 0 was "passed" once already.
-    if (!EMAIL_REGEX.test(form.values.email.trim()) || !emailVerified) {
+    if (!authUser && (!EMAIL_REGEX.test(form.values.email.trim()) || !emailVerified)) {
       setSubmitError("Please verify a valid email address before confirming your booking.");
       setStep(0);
       return;
     }
 
     if (payMethod === "Card") {
-      const result = form.validate();
-      if (["cardNumber", "expiry", "cvv"].some((f) => result.errors[f])) return;
+      if (selectedCardId !== "new") {
+        if (!/^\d{3,4}$/.test(savedCardCvv)) {
+          setSubmitError("Please enter the CVV for your saved card.");
+          return;
+        }
+      } else {
+        const result = form.validate();
+        if (["cardNumber", "expiry", "cvv"].some((f) => result.errors[f])) return;
+      }
     } else {
       if (!txFile) {
         setTxFileError(
@@ -495,7 +596,7 @@ export default function CheckoutClient() {
     // Final guard: never let an unverified/invalid email reach the
     // booking API, even if this is somehow called without going through
     // handlePayment first.
-    if (!EMAIL_REGEX.test(form.values.email.trim()) || !emailVerified || !verificationToken) {
+    if (!authUser && (!EMAIL_REGEX.test(form.values.email.trim()) || !emailVerified || !verificationToken)) {
       setConfirmOpen(false);
       setSubmitError("Please verify a valid email address before confirming your booking.");
       setStep(0);
@@ -515,13 +616,22 @@ export default function CheckoutClient() {
       // any raw card fields — is what the booking API trusts.
       if (payMethod === "Card") {
         try {
-          const { data: charge } = await api.post("/payments/card/charge", {
-            cardNumber: form.values.cardNumber.replace(/\s/g, ""),
-            expiry: form.values.expiry,
-            cvv: form.values.cvv,
-            amount: grandTotal,
-          });
-          cardPaymentToken = charge.token;
+          if (selectedCardId !== "new") {
+            const { data: charge } = await api.post(
+              `/payments/cards/${selectedCardId}/charge`,
+              { cvv: savedCardCvv, amount: grandTotal },
+            );
+            cardPaymentToken = charge.token;
+          } else {
+            const { data: charge } = await api.post("/payments/card/charge", {
+              cardNumber: form.values.cardNumber.replace(/\s/g, ""),
+              expiry: form.values.expiry,
+              cvv: form.values.cvv,
+              amount: grandTotal,
+              saveCard: !!authUser && saveNewCard,
+            });
+            cardPaymentToken = charge.token;
+          }
         } catch (err: any) {
           const msg =
             err?.response?.data?.message ??
@@ -558,7 +668,7 @@ export default function CheckoutClient() {
           form.values.contactMethod === "whatsapp"
             ? form.values.whatsappNumber
             : form.values.email,
-        emailVerificationToken: verificationToken,
+        emailVerificationToken: authUser ? undefined : (verificationToken ?? undefined),
         cardPaymentToken,
         // ── Preferred start timing ──
         preferredDate: preferredDateForSubmit,
@@ -583,6 +693,7 @@ export default function CheckoutClient() {
       // needed.
       form.setFieldValue("cardNumber", "");
       form.setFieldValue("cvv", "");
+      setSavedCardCvv("");
 
       try {
         sessionStorage.setItem(
@@ -694,6 +805,55 @@ export default function CheckoutClient() {
     <>
       <Header />
 
+      {/* ── Sign in or continue as guest — shown once per session for
+          logged-out visitors, right when checkout starts ── */}
+      {authChecked && showGuestPrompt && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 px-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="guest-prompt-title"
+          onClick={dismissGuestPrompt}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-7 text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-[2.2rem] mb-3">🔑</div>
+            <h3 id="guest-prompt-title" className="font-serif text-lg font-semibold text-ink mb-2">
+              Sign in for a smoother checkout
+            </h3>
+            <p className="text-sm text-stone mb-6 leading-relaxed">
+              Signed-in bookings are saved to your account, your details autofill next time,
+              and you can save a card for faster payment. Or just continue as a guest — that works too.
+            </p>
+            <div className="flex flex-col gap-2.5">
+              <Link
+                href={`/user/login?redirect=${encodeURIComponent(`/checkout?${params.toString()}`)}`}
+                onClick={dismissGuestPrompt}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium text-white bg-sky-accent hover:bg-sky-dark transition-colors no-underline"
+              >
+                <IconLogin size={16} /> Sign in
+              </Link>
+              <Link
+                href={`/user/signup?redirect=${encodeURIComponent(`/checkout?${params.toString()}`)}`}
+                onClick={dismissGuestPrompt}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium text-ink border border-sky-mid/30 hover:bg-sky-light transition-colors no-underline"
+              >
+                Create an account
+              </Link>
+              <button
+                type="button"
+                onClick={dismissGuestPrompt}
+                className="px-4 py-2.5 rounded-full text-sm font-medium text-stone hover:bg-sky-light transition-colors"
+              >
+                Continue as guest
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Confirmation Modal ── */}
       <Modal
         opened={confirmOpen}
@@ -708,12 +868,23 @@ export default function CheckoutClient() {
           content: {
             overflow: "hidden",
             border: "1px solid rgba(46,134,193,0.18)",
+            display: "flex",
+            flexDirection: "column",
+            maxHeight: "90vh",
+          },
+          body: {
+            display: "flex",
+            flexDirection: "column",
+            flex: 1,
+            minHeight: 0,
+            padding: 0,
           },
         }}
       >
-        {/* Gradient header band */}
+        {/* Gradient header band — stays fixed at the top */}
         <Box
           style={{
+            flexShrink: 0,
             background:
               "linear-gradient(135deg, #0f4c81 0%, #1a6ea8 50%, #2e86c1 100%)",
             padding: `${rem(28)} ${rem(32)} ${rem(24)}`,
@@ -743,8 +914,17 @@ export default function CheckoutClient() {
           </Group>
         </Box>
 
-        {/* Body */}
-        <Box p={`${rem(24)} ${rem(32)} ${rem(28)}`}>
+        {/* Scrollable body — everything except the header/footer scrolls
+            if it doesn't fit, so the action buttons below are never
+            pushed off-screen regardless of how many add-ons/fees show up. */}
+        <Box
+          style={{
+            flex: 1,
+            minHeight: 0,
+            overflowY: "auto",
+            padding: `${rem(24)} ${rem(32)} ${rem(4)}`,
+          }}
+        >
           {/* Summary rows */}
           <Box
             p="lg"
@@ -861,7 +1041,7 @@ export default function CheckoutClient() {
           {/* Cancellation + guide-coordination note */}
           <Box
             p="sm"
-            mb="xl"
+            mb="lg"
             style={{
               background: "linear-gradient(135deg, #f0f8ff, #e8f4fc)",
               borderRadius: rem(10),
@@ -895,8 +1075,18 @@ export default function CheckoutClient() {
               </Group>
             </Stack>
           </Box>
+        </Box>
 
-          {/* Actions */}
+        {/* Actions — pinned below the scroll area, always visible even
+            when the summary above doesn't fully fit on screen. */}
+        <Box
+          style={{
+            flexShrink: 0,
+            padding: `${rem(16)} ${rem(32)} ${rem(24)}`,
+            borderTop: "1px solid rgba(46,134,193,0.12)",
+            background: "white",
+          }}
+        >
           <Group gap="sm">
             <Button
               flex={1}
@@ -1099,6 +1289,23 @@ export default function CheckoutClient() {
                 </Group>
 
                 {/* ── Email verification ── */}
+                {authUser ? (
+                  <Box
+                    p="md"
+                    style={{
+                      background: "linear-gradient(135deg, #f0fff4, #e8faf0)",
+                      border: "1.5px solid rgba(39,174,96,0.35)",
+                      borderRadius: rem(14),
+                    }}
+                  >
+                    <Group gap={6}>
+                      <IconCheck size={16} color="#10b981" />
+                      <Text fz={13} c="teal.7" fw={600}>
+                        Email verified via your account
+                      </Text>
+                    </Group>
+                  </Box>
+                ) : (
                 <Box
                   p="md"
                   style={{
@@ -1176,19 +1383,25 @@ export default function CheckoutClient() {
                     </Text>
                   )}
                 </Box>
+                )}
 
                 <Group grow gap="md">
-                  <TextInput
+                  <Select
                     label="Country of Residence"
-                    placeholder="United States"
+                    placeholder="Select your country"
                     leftSection={<IconWorld size={15} />}
-                    {...form.getInputProps("country")}
+                    data={COUNTRY_NAMES}
+                    searchable
+                    nothingFoundMessage="No country found"
+                    value={form.values.country || null}
+                    onChange={handleCountryChange}
+                    error={form.errors.country}
                     styles={inputStyles}
                   />
                   <NumberInput
                     label="Number of Travelers"
                     min={1}
-                    max={8}
+                    max={100}
                     leftSection={<IconUsers size={15} />}
                     {...form.getInputProps("travelers")}
                     styles={inputStyles}
@@ -1714,49 +1927,143 @@ export default function CheckoutClient() {
 
               {payMethod === "Card" && (
                 <Stack gap="md" mb="xl">
-                  <TextInput
-                    label="Card Number"
-                    placeholder="1234 5678 9012 3456"
-                    leftSection={<IconCreditCard size={15} />}
-                    maxLength={19}
-                    {...form.getInputProps("cardNumber")}
-                    onChange={(e) => {
-                      const val = e.target.value
-                        .replace(/\D/g, "")
-                        .slice(0, 16);
-                      form.setFieldValue(
-                        "cardNumber",
-                        val.replace(/(.{4})/g, "$1 ").trim(),
-                      );
-                    }}
-                    styles={inputStyles}
-                  />
-                  <Group grow gap="md">
-                    <TextInput
-                      label="Expiry"
-                      placeholder="MM / YY"
-                      maxLength={5}
-                      {...form.getInputProps("expiry")}
-                      onChange={(e) => {
-                        let val = e.target.value.replace(/\D/g, "").slice(0, 4);
-                        if (val.length >= 3)
-                          val = val.slice(0, 2) + "/" + val.slice(2);
-                        form.setFieldValue("expiry", val);
-                      }}
-                      styles={inputStyles}
-                    />
+                  {authUser && savedCards.length > 0 && (
+                    <Box>
+                      <Text fz={11} fw={700} c="gray.6" mb={8} style={{ letterSpacing: "0.1em", textTransform: "uppercase" }}>
+                        Saved Cards
+                      </Text>
+                      <Stack gap={8}>
+                        {savedCards.map((c) => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => setSelectedCardId(c.id)}
+                            style={{
+                              display: "flex", alignItems: "center", justifyContent: "space-between",
+                              border: selectedCardId === c.id ? "2px solid #2e86c1" : "1.5px solid rgba(46,134,193,0.2)",
+                              borderRadius: rem(12),
+                              padding: `${rem(10)} ${rem(14)}`,
+                              background: selectedCardId === c.id ? "linear-gradient(135deg, #f0f8ff, #e0f0fa)" : "white",
+                              cursor: "pointer",
+                              transition: "all 0.2s ease",
+                              width: "100%",
+                            }}
+                          >
+                            <Group gap={10}>
+                              <IconCreditCard size={16} color={selectedCardId === c.id ? "#1a6ea8" : "#94a3b8"} />
+                              <Text fz={13} fw={600} c="dark.7">
+                                {c.brand} •••• {c.last4}
+                              </Text>
+                              <Text fz={12} c="dimmed">
+                                Exp {c.expiryMonth}/{c.expiryYear}
+                              </Text>
+                            </Group>
+                            <span
+                              role="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemoveSavedCard(c.id);
+                              }}
+                              style={{ color: "#cbd5e1", display: "flex", alignItems: "center" }}
+                            >
+                              {removingCardId === c.id ? (
+                                <Loader size={13} />
+                              ) : (
+                                <IconTrash size={15} />
+                              )}
+                            </span>
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedCardId("new")}
+                          style={{
+                            border: selectedCardId === "new" ? "2px solid #2e86c1" : "1.5px dashed rgba(46,134,193,0.3)",
+                            borderRadius: rem(12),
+                            padding: `${rem(10)} ${rem(14)}`,
+                            fontSize: rem(13),
+                            fontWeight: 600,
+                            color: selectedCardId === "new" ? "#1a6ea8" : "#6b7c8d",
+                            background: selectedCardId === "new" ? "linear-gradient(135deg, #f0f8ff, #e0f0fa)" : "transparent",
+                            cursor: "pointer",
+                            transition: "all 0.2s ease",
+                          }}
+                        >
+                          + Use a different card
+                        </button>
+                      </Stack>
+                    </Box>
+                  )}
+
+                  {authUser && selectedCardId !== "new" ? (
                     <TextInput
                       label="CVV"
                       placeholder="•••"
                       type="password"
                       maxLength={4}
-                      {...form.getInputProps("cvv")}
+                      value={savedCardCvv}
+                      onChange={(e) => setSavedCardCvv(e.target.value.replace(/\D/g, "").slice(0, 4))}
                       styles={inputStyles}
                     />
-                  </Group>
-                  <Text fz={11} c="dimmed" fw={300}>
-                    Test mode — try 4242 4242 4242 4242 (approved) or 4000 0000 0000 0002 (declined).
-                  </Text>
+                  ) : (
+                    <>
+                      <TextInput
+                        label="Card Number"
+                        placeholder="1234 5678 9012 3456"
+                        leftSection={<IconCreditCard size={15} />}
+                        maxLength={19}
+                        {...form.getInputProps("cardNumber")}
+                        onChange={(e) => {
+                          const val = e.target.value
+                            .replace(/\D/g, "")
+                            .slice(0, 16);
+                          form.setFieldValue(
+                            "cardNumber",
+                            val.replace(/(.{4})/g, "$1 ").trim(),
+                          );
+                        }}
+                        styles={inputStyles}
+                      />
+                      <Group grow gap="md">
+                        <TextInput
+                          label="Expiry"
+                          placeholder="MM / YY"
+                          maxLength={5}
+                          {...form.getInputProps("expiry")}
+                          onChange={(e) => {
+                            let val = e.target.value.replace(/\D/g, "").slice(0, 4);
+                            if (val.length >= 3)
+                              val = val.slice(0, 2) + "/" + val.slice(2);
+                            form.setFieldValue("expiry", val);
+                          }}
+                          styles={inputStyles}
+                        />
+                        <TextInput
+                          label="CVV"
+                          placeholder="•••"
+                          type="password"
+                          maxLength={4}
+                          {...form.getInputProps("cvv")}
+                          styles={inputStyles}
+                        />
+                      </Group>
+                      <Text fz={11} c="dimmed" fw={300}>
+                        Test mode — try 4242 4242 4242 4242 (approved) or 4000 0000 0000 0002 (declined).
+                      </Text>
+                      {authUser && (
+                        <Checkbox
+                          checked={saveNewCard}
+                          onChange={(e) => setSaveNewCard(e.currentTarget.checked)}
+                          label={
+                            <Text fz={12.5} c="dimmed" fw={400}>
+                              Save this card for faster checkout next time
+                            </Text>
+                          }
+                          styles={{ input: { cursor: "pointer" } }}
+                        />
+                      )}
+                    </>
+                  )}
                 </Stack>
               )}
 
