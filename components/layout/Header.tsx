@@ -18,7 +18,6 @@ export default function Header() {
   // ── Account: user icon, logged-in dropdown ──
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
-  const [loggedOutMenuOpen, setLoggedOutMenuOpen] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -36,7 +35,6 @@ export default function Header() {
     const onClickOutside = (e: MouseEvent) => {
       if (accountMenuRef.current && !accountMenuRef.current.contains(e.target as Node)) {
         setAccountMenuOpen(false);
-        setLoggedOutMenuOpen(false);
       }
     };
     document.addEventListener('mousedown', onClickOutside);
@@ -61,11 +59,7 @@ export default function Header() {
 
   const handleUserIconClick = () => {
     setMobileOpen(false);
-    if (authUser) {
-      setAccountMenuOpen((v) => !v);
-    } else {
-      setLoggedOutMenuOpen((v) => !v);
-    }
+    setAccountMenuOpen((v) => !v);
   };
 
   const handleSignOut = () => {
@@ -110,93 +104,83 @@ export default function Header() {
           Plan My Trip
         </button>
 
-        {/* User account icon + dropdown */}
-        <div className="relative" ref={accountMenuRef}>
-          <button
-            type="button"
-            onClick={handleUserIconClick}
-            aria-label={authUser ? 'Account menu' : 'Sign in'}
-            className="w-9 h-9 rounded-full flex items-center justify-center border border-sky-mid/30 bg-white hover:border-sky-accent hover:bg-sky-light transition-colors"
-          >
-            {authUser ? (
+        {authUser ? (
+          /* Logged in: avatar + dropdown */
+          <div className="relative" ref={accountMenuRef}>
+            <button
+              type="button"
+              onClick={handleUserIconClick}
+              aria-label="Account menu"
+              aria-expanded={accountMenuOpen}
+              className="w-9 h-9 rounded-full flex items-center justify-center border border-sky-mid/30 bg-white hover:border-sky-accent hover:bg-sky-light transition-colors"
+            >
               <span className="w-full h-full rounded-full bg-sky-accent text-white flex items-center justify-center text-[0.7rem] font-semibold">
                 {initials}
               </span>
-            ) : (
-              <IconUser size={18} className="text-ink" stroke={1.7} />
-            )}
-          </button>
+            </button>
 
-          {accountMenuOpen && authUser && (
-            <div
-              className="absolute right-0 top-[calc(100%+10px)] w-56 bg-white rounded-xl border border-sky-mid/20 shadow-[0_12px_40px_rgba(30,80,120,0.16)] py-2 z-[70]"
-              role="menu"
-            >
-              <div className="px-4 py-2 border-b border-sky-mid/10 mb-1">
-                <p className="text-sm font-medium text-ink truncate">{authUser.name || 'My Account'}</p>
-                <p className="text-xs text-pebble truncate">{authUser.email}</p>
-              </div>
-              <Link
-                href="/account"
-                onClick={() => setAccountMenuOpen(false)}
-                className="flex items-center gap-2.5 px-4 py-2 text-sm text-ink hover:bg-sky-light transition-colors no-underline"
+            {accountMenuOpen && (
+              <div
+                className="absolute right-0 top-[calc(100%+10px)] w-56 bg-white rounded-xl border border-sky-mid/20 shadow-[0_12px_40px_rgba(30,80,120,0.16)] py-2 z-[70]"
+                role="menu"
               >
-                <IconUserCircle size={16} className="text-sky-accent" />
-                My Dashboard
-              </Link>
-              {authUser.role === 'admin' && (
+                <div className="px-4 py-2 border-b border-sky-mid/10 mb-1">
+                  <p className="text-sm font-medium text-ink truncate">{authUser.name || 'My Account'}</p>
+                  <p className="text-xs text-pebble truncate">{authUser.email}</p>
+                </div>
                 <Link
-                  href="/dashboard"
+                  href="/account"
                   onClick={() => setAccountMenuOpen(false)}
                   className="flex items-center gap-2.5 px-4 py-2 text-sm text-ink hover:bg-sky-light transition-colors no-underline"
                 >
                   <IconUserCircle size={16} className="text-sky-accent" />
-                  Admin Panel
+                  My Dashboard
                 </Link>
-              )}
-              <button
-                type="button"
-                onClick={handleSignOut}
-                className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors"
-              >
-                Sign out
-              </button>
-            </div>
-          )}
-
-          {loggedOutMenuOpen && !authUser && (
-            <div
-              className="absolute right-0 top-[calc(100%+10px)] w-52 bg-white rounded-xl border border-sky-mid/20 shadow-[0_12px_40px_rgba(30,80,120,0.16)] py-2 z-[70]"
-              role="menu"
+                {authUser.role === 'admin' && (
+                  <Link
+                    href="/dashboard"
+                    onClick={() => setAccountMenuOpen(false)}
+                    className="flex items-center gap-2.5 px-4 py-2 text-sm text-ink hover:bg-sky-light transition-colors no-underline"
+                  >
+                    <IconUserCircle size={16} className="text-sky-accent" />
+                    Admin Panel
+                  </Link>
+                )}
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  className="w-full text-left flex items-center gap-2.5 px-4 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors"
+                >
+                  Sign out
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          /* Logged out: plain, visible Log in / Sign up */
+          <div className="flex items-center gap-3">
+            <Link
+              href="/user/login"
+              className="text-sm font-medium text-black no-underline hover:text-sky-accent transition-colors"
             >
-              <Link
-                href="/user/login"
-                onClick={() => setLoggedOutMenuOpen(false)}
-                className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-ink hover:bg-sky-light transition-colors no-underline"
-              >
-                <IconLogin size={16} className="text-sky-accent" />
-                Log in
-              </Link>
-              <Link
-                href="/user/signup"
-                onClick={() => setLoggedOutMenuOpen(false)}
-                className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-ink hover:bg-sky-light transition-colors no-underline"
-              >
-                <IconUserPlus size={16} className="text-sky-accent" />
-                Create account
-              </Link>
-            </div>
-          )}
-        </div>
+              Log in
+            </Link>
+            <Link
+              href="/user/signup"
+              className="text-sm font-medium text-sky-accent border border-sky-accent/40 px-4 py-1.5 rounded-full no-underline hover:bg-sky-light transition-colors"
+            >
+              Sign up
+            </Link>
+          </div>
+        )}
       </nav>
 
       {/* Mobile hamburger + user icon */}
       <div className="md:hidden flex items-center gap-1">
-        <button
-          type="button"
-          onClick={handleUserIconClick}
-          aria-label={authUser ? 'Account menu' : 'Sign in'}
-          className="w-9 h-9 rounded-full flex items-center justify-center border border-sky-mid/30 bg-white"
+        <Link
+          href={authUser ? '/account' : '/user/login'}
+          aria-label={authUser ? 'My dashboard' : 'Log in'}
+          className="w-9 h-9 rounded-full flex items-center justify-center border border-sky-mid/30 bg-white no-underline"
         >
           {authUser ? (
             <span className="w-full h-full rounded-full bg-sky-accent text-white flex items-center justify-center text-[0.7rem] font-semibold">
@@ -205,7 +189,7 @@ export default function Header() {
           ) : (
             <IconUser size={17} className="text-ink" stroke={1.7} />
           )}
-        </button>
+        </Link>
         <button
           className="flex flex-col gap-1.5 p-2"
           onClick={() => setMobileOpen(prev => !prev)}

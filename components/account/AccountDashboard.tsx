@@ -1,8 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import Header from '@/components/layout/Header';
-import Footer from '@/components/layout/Footer';
 import TourCard from '@/components/tours/TourCard';
 import api from '@/lib/api/api';
 import { getUser, getToken, clearAuth, AuthUser } from '@/lib/auth/tokenStore';
@@ -207,9 +205,7 @@ export default function AccountDashboard() {
   if (!checked) {
     return (
       <>
-        <Header />
         <main className="min-h-screen bg-mist pt-[68px]" />
-        <Footer />
       </>
     );
   }
@@ -217,7 +213,6 @@ export default function AccountDashboard() {
   if (!authUser) {
     return (
       <>
-        <Header />
         <main className="min-h-screen bg-mist pt-[68px] flex items-center justify-center px-6">
           <div className="text-center max-w-sm">
             <div className="text-[3rem] mb-4">🔒</div>
@@ -243,14 +238,12 @@ export default function AccountDashboard() {
             </div>
           </div>
         </main>
-        <Footer />
       </>
     );
   }
 
   return (
     <>
-      <Header />
       <main className="min-h-screen bg-mist pt-[68px]">
         <div className="max-w-5xl mx-auto px-6 md:px-12 py-10">
 
@@ -403,7 +396,6 @@ export default function AccountDashboard() {
 
         </div>
       </main>
-      <Footer />
 
       {/* ── Cancel confirmation ── */}
       {cancelConfirmId != null && (

@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { IconAlertCircle, IconUserPlus, IconCheck, IconEye, IconEyeOff, IconX } from '@tabler/icons-react';
 import api from '@/lib/api/api';
 import { saveAuth } from '@/lib/auth/tokenStore';
+import { flushGuestViews, safeRedirect } from '@/lib/tracking';
 
 const EMAIL_REGEX = /^\S+@\S+\.\S+$/;
 
@@ -158,7 +159,9 @@ export default function UserSignupModule() {
       setVerificationCode('');
       setResendCooldown(60);
     } catch (err: any) {
-      const msg = err?.response?.data?.message ?? 'Could not send a verification code. Please try again.';
+      const msg = !err?.response
+        ? "We couldn't reach the server. Please check your connection and try again."
+        : err.response.data?.message ?? 'Could not send a verification code. Please try again.';
       setVerifyError(typeof msg === 'string' ? msg : JSON.stringify(msg));
     } finally {
       setSendingCode(false);
@@ -215,25 +218,31 @@ export default function UserSignupModule() {
       });
       if (data.access_token) {
         saveAuth(data.access_token, data.user);
+        // Replay anything they browsed as a guest so it counts toward
+        // their recommendations from day one.
+        flushGuestViews();
       }
-      const redirect = searchParams.get('redirect');
-      router.push(redirect || '/account');
+      router.push(safeRedirect(searchParams.get('redirect'), '/account'));
     } catch (err: any) {
-      const raw = err?.response?.data?.message;
-      const msg = Array.isArray(raw) ? raw.join(', ') : raw;
-      setError(msg ?? 'Could not create your account. Please try again.');
+      if (!err?.response) {
+        setError("We couldn't reach the server. Please check your connection and try again.");
+      } else {
+        const raw = err.response.data?.message;
+        const msg = Array.isArray(raw) ? raw.join(', ') : raw;
+        setError(msg ?? 'Could not create your account. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   const loginHref = (() => {
-    const redirect = searchParams.get('redirect');
+    const redirect = safeRedirect(searchParams.get('redirect'), '');
     return redirect ? `/user/login?redirect=${encodeURIComponent(redirect)}` : '/user/login';
   })();
 
   return (
-    <div className="min-h-screen bg-mist flex items-center justify-center px-4 py-16">
+    <div className="min-h-screen bg-mist flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-[420px]">
         <Link href="/" className="flex justify-center mb-8 no-underline select-none">
           <Image
@@ -261,7 +270,7 @@ export default function UserSignupModule() {
           </div>
 
           {error && (
-            <div className="mb-5 px-4 py-3 rounded-xl bg-red-50 border border-red-100 flex items-center gap-2.5">
+            <div role="alert" className="mb-5 px-4 py-3 rounded-xl bg-red-50 border border-red-100 flex items-center gap-2.5">
               <IconAlertCircle size={16} className="text-red-400 shrink-0" />
               <p className="text-[0.8rem] text-red-500">{error}</p>
             </div>
@@ -274,6 +283,8 @@ export default function UserSignupModule() {
               </label>
               <input
                 type="text"
+                autoComplete="name"
+                autoFocus
                 placeholder="Jane Doe"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -289,6 +300,7 @@ export default function UserSignupModule() {
               </label>
               <input
                 type="email"
+                autoComplete="email"
                 placeholder="jane@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -343,7 +355,15 @@ export default function UserSignupModule() {
                   <input
                     type="text"
                     placeholder="6-digit code"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
                     maxLength={6}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleVerifyCode();
+                      }
+                    }}
                     value={verificationCode}
                     onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                     className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 placeholder-gray-300 outline-none focus:border-sky-accent focus:ring-2 focus:ring-sky-accent/10 transition-all"
@@ -370,6 +390,7 @@ export default function UserSignupModule() {
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
+                  autoComplete="new-password"
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -422,6 +443,7 @@ export default function UserSignupModule() {
               <div className="relative">
                 <input
                   type={showConfirmPassword ? 'text' : 'password'}
+                  autoComplete="new-password"
                   placeholder="••••••••"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
@@ -479,7 +501,7 @@ export default function UserSignupModule() {
                   })}
                 </div>
                 <p className="text-[0.7rem] text-gray-400 mt-1.5">
-                  We'll use this to pick your first recommendations — it'll keep improving as you browse and book.
+                  We&apos;ll use this to pick your first recommendations — they&apos;ll keep improving as you browse and book.
                 </p>
               </div>
             )}

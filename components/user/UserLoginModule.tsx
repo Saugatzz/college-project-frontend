@@ -3,9 +3,10 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { IconAlertCircle, IconLogin, IconEye, IconEyeOff } from '@tabler/icons-react';
+import { IconAlertCircle, IconLogin, IconEye, IconEyeOff, IconArrowLeft } from '@tabler/icons-react';
 import api from '@/lib/api/api';
 import { saveAuth } from '@/lib/auth/tokenStore';
+import { flushGuestViews, safeRedirect } from '@/lib/tracking';
 
 export default function UserLoginModule() {
   const router = useRouter();
@@ -16,33 +17,47 @@ export default function UserLoginModule() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const redirectParam = searchParams.get('redirect');
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     setLoading(true);
     setError('');
     try {
-      const { data } = await api.post('/auth/login', { email, password, audience: 'user' });
+      const { data } = await api.post('/auth/login', {
+        email: email.trim(),
+        password,
+        audience: 'user',
+      });
       if (data.access_token) {
         saveAuth(data.access_token, data.user);
+        // Replay anything they browsed as a guest so it counts toward
+        // their recommendations.
+        flushGuestViews();
       }
-      const redirect = searchParams.get('redirect');
-      router.push(redirect || '/account');
+      router.push(safeRedirect(redirectParam, '/account'));
     } catch (err: any) {
-      const raw = err?.response?.data?.message;
-      const msg = Array.isArray(raw) ? raw.join(', ') : raw;
-      setError(msg ?? 'Invalid email or password.');
+      if (!err?.response) {
+        setError("We couldn't reach the server. Please check your connection and try again.");
+      } else if (err.response.status === 401) {
+        setError('That email and password don\u2019t match. Please try again.');
+      } else {
+        const raw = err.response.data?.message;
+        const msg = Array.isArray(raw) ? raw.join(', ') : raw;
+        setError(msg ?? 'Something went wrong signing you in. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const signupHref = (() => {
-    const redirect = searchParams.get('redirect');
-    return redirect ? `/user/signup?redirect=${encodeURIComponent(redirect)}` : '/user/signup';
-  })();
+  const signupHref = safeRedirect(redirectParam, '')
+    ? `/user/signup?redirect=${encodeURIComponent(safeRedirect(redirectParam, ''))}`
+    : '/user/signup';
 
   return (
-    <div className="min-h-screen bg-mist flex items-center justify-center px-4 py-16">
+    <div className="min-h-screen bg-mist flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-[400px]">
         <Link href="/" className="flex justify-center mb-8 no-underline select-none">
           <Image
@@ -70,7 +85,10 @@ export default function UserLoginModule() {
           </div>
 
           {error && (
-            <div className="mb-5 px-4 py-3 rounded-xl bg-red-50 border border-red-100 flex items-center gap-2.5">
+            <div
+              role="alert"
+              className="mb-5 px-4 py-3 rounded-xl bg-red-50 border border-red-100 flex items-center gap-2.5"
+            >
               <IconAlertCircle size={16} className="text-red-400 shrink-0" />
               <p className="text-[0.8rem] text-red-500">{error}</p>
             </div>
@@ -78,11 +96,18 @@ export default function UserLoginModule() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-[0.75rem] font-medium text-gray-500 uppercase tracking-wider mb-1.5">
+              <label
+                htmlFor="login-email"
+                className="block text-[0.75rem] font-medium text-gray-500 uppercase tracking-wider mb-1.5"
+              >
                 Email
               </label>
               <input
+                id="login-email"
+                name="email"
                 type="email"
+                autoComplete="email"
+                autoFocus
                 placeholder="jane@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -92,12 +117,18 @@ export default function UserLoginModule() {
             </div>
 
             <div>
-              <label className="block text-[0.75rem] font-medium text-gray-500 uppercase tracking-wider mb-1.5">
+              <label
+                htmlFor="login-password"
+                className="block text-[0.75rem] font-medium text-gray-500 uppercase tracking-wider mb-1.5"
+              >
                 Password
               </label>
               <div className="relative">
                 <input
+                  id="login-password"
+                  name="password"
                   type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -134,7 +165,14 @@ export default function UserLoginModule() {
           </p>
         </div>
 
-        <p className="text-center text-[0.7rem] text-gray-300 mt-6">
+        <Link
+          href="/"
+          className="flex items-center justify-center gap-1.5 text-[0.78rem] text-pebble hover:text-sky-accent transition-colors mt-6 no-underline"
+        >
+          <IconArrowLeft size={14} /> Back to tours
+        </Link>
+
+        <p className="text-center text-[0.7rem] text-gray-300 mt-4">
           © {new Date().getFullYear()} Sajilo Yatra. All rights reserved.
         </p>
       </div>

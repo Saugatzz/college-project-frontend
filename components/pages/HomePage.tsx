@@ -3,6 +3,7 @@ import { useFilters } from '@/hooks/useFilters';
 import HeroSection    from '@/components/home/HeroSection';
 import SearchSection  from '@/components/home/SearchSection';
 import ToursSection   from '@/components/home/ToursSection';
+import RecommendedSection from '@/components/home/RecommendedSection';
 
 export default function HomePageClient() {   // ← no more tours prop
  const {
@@ -50,6 +51,7 @@ export default function HomePageClient() {   // ← no more tours prop
 
       {/* Tours section */}
       <div className="bg-snow pt-4 sm:pt-12 md:pt-10">
+        <RecommendedSection />
        <ToursSection
   filters={filters}
   tours={tours}

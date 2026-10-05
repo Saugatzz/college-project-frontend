@@ -9,7 +9,7 @@ import Highlights           from '@/components/detail/Highlights';
 import IncludesExcludes     from '@/components/detail/IncludeExcludes';
 import BookingSidebar       from '@/components/detail/BookingSidebar';
 import SimilarTours         from '@/components/detail/SimilarTours';
-import api                  from '@/lib/api/api';
+import { trackTourView }    from '@/lib/tracking';
 
 function SectionTitle({ id, children }: { id: string; children: React.ReactNode }) {
   return (
@@ -34,12 +34,9 @@ export default function TourDetailPage({ tour, similarTours = [] }: Props) {
   const [selectedAddons, setSelectedAddons] = useState<Record<number, number>>({});
 
   useEffect(() => {
-    // Fire-and-forget: the axios client already attaches the JWT if the
-    // person is logged in, and the backend silently no-ops for guests
-    // (OptionalJwtAuthGuard). Never surfaces an error to the visitor.
-    if (tour?.id) {
-      api.post(`/packages/${tour.id}/interact`, { type: 'view' }).catch(() => {});
-    }
+    // Logged in: sent to the backend. Guest: remembered locally and
+    // replayed when they log in or sign up. Never surfaces an error.
+    trackTourView(tour?.id);
   }, [tour?.id]);
 
 
